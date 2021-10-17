@@ -6,30 +6,47 @@
         xmlns:local="clr-namespace:wpfTimeController"
         mc:Ignorable="d"
         Title="TrackApplicationForm" Height="305.74" Width="467.554">
+    
     <Grid>
+        
         <DockPanel>
-            <Border DockPanel.Dock="Top" VerticalAlignment="Bottom" Margin="0,0,0,0" >
+            <Border DockPanel.Dock="Top" VerticalAlignment="Top" Margin="0,0,-0.333,0" Height="277" >
                 <Grid  Margin="0,0,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition  Width="5*"/>
                         <ColumnDefinition Width="1*"/>
                         <ColumnDefinition Width="5*"/>
                     </Grid.ColumnDefinitions>
-                    <Label Content="当前活动进程" Grid.Column="0"/>
-                    <ListBox VerticalAlignment="Bottom" Margin="0,0,0,0" Grid.Column="0" BorderThickness="0.5" BorderBrush="#FFDDDCDC" Background="White">
-                        <ListBoxItem Content="1" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
-                        <ListBoxItem Content="2" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
-                    </ListBox>
-                    <Label Content="当前活动进程" Grid.Column="2"/>
-                    <ListBox Margin="0,35,0,0" Grid.Column="2">
-                        <ListBoxItem Content="1" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
-                        <ListBoxItem Content="2" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
-                    </ListBox>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="6*"/>
+                        <RowDefinition Height="1*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Column="0" Grid.Row="0">
+                        <Grid Background="#FFE9ECEF">
+                            <Label Content="当前活动进程" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" Height="30"  />
+                            <ListBox VerticalAlignment="Top" Margin="0,20,0,0"  BorderThickness="0.5" BorderBrush="#FFDDDCDC"  Background="#FFE9ECEF">
+                                <ListBoxItem Content="1" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
+                                <ListBoxItem Content="2" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                    <Border Grid.Column="2" Grid.Row="0">
+                        <Grid Background="#FFE9ECEF">
+                            <Label Content="已选进程" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" Height="30"/>
+                            <ListBox VerticalAlignment="Top" Margin="0,20,0,0"  BorderThickness="0.5" BorderBrush="#FFDDDCDC" Background="#FFE9ECEF">
+                                <ListBoxItem Content="1" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
+                                <ListBoxItem Content="2" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                    <Border DockPanel.Dock="Bottom" Grid.Row="1" Grid.ColumnSpan="3" VerticalAlignment="Bottom" Margin="0,0,0,0" Height="38">
+                        <Label Content="1"/>
+                    </Border>
                 </Grid>
             </Border>
-            <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,0,0,0" Height="30">
+        <!--    <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,0,0,0" Height="30">
                 <Label Content="1"/>
-            </Border>
+            </Border> -->
         </DockPanel>
     </Grid>
 </Window>
