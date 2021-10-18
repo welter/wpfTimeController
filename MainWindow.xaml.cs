@@ -23,6 +23,58 @@ namespace wpfTimeController
         public MainWindow()
         {
             InitializeComponent();
+            InitializeComponent();
+
+            System.Windows.Forms.NotifyIcon ni = new System.Windows.Forms.NotifyIcon();
+            ni.Icon = new System.Drawing.Icon("Main.ico");
+            ni.Visible = true;
+            ni.DoubleClick +=
+             delegate (object sender, EventArgs args)
+             {
+                 this.Show();
+                 this.WindowState = WindowState.Normal;
+             };
+        }
+        protected override void OnStateChanged(EventArgs e)
+        {
+            if (WindowState == WindowState.Minimized)
+                this.Hide();
+
+            base.OnStateChanged(e);
+        }
+
+
+        private void OnClick(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void MenuAbout_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new About();
+            win.ShowDialog(this);
+        }
+
+        private void MenuHelp_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new HelpForm();
+            win.ShowDialog(this);
+        }
+
+        private void MenuRestart_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void MenuExit_Click(object sender, RoutedEventArgs e)
+        {
+            App.Current.Shutdown();
+        }
+
+        private void ButtonMin_Click(object sender, RoutedEventArgs e)
+        {
+            this.Hide();
         }
     }
 }
+

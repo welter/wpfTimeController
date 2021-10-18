@@ -1,0 +1,20 @@
+﻿<Window x:Class="wpfTimeController.About"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:wpfTimeController"
+        mc:Ignorable="d"
+        Title="About" Height="229.867" Width="325.79">
+    <Grid>
+        <StackPanel Background="#FFD7E8CD">
+            <Label Content="时间管家" FontSize="20" FontWeight="Black" HorizontalAlignment="Center" Foreground="#DDFF0101" Margin="0,5" />
+            <Label Content="TIME CONTROLLER  ver 1.0" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#DDEA6705"/>
+            <Label  FontSize="26" FontFamily="STXinwei" Margin="0,5">
+                <TextBlock Text="    合理安排时间，就等于节约时间。"  TextWrapping="Wrap"/>
+            </Label>
+            <Label Content="开发：Welter" HorizontalAlignment="Right" FontWeight="Bold" Margin="10,0"/>
+            <Label Content="2021年" HorizontalAlignment="Right" FontWeight="Black" Margin="20,0"/>
+        </StackPanel>
+    </Grid>
+</Window>

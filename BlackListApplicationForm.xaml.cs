@@ -15,15 +15,13 @@ using System.Windows.Shapes;
 namespace wpfTimeController
 {
     /// <summary>
-    /// HelpForm.xaml 的交互逻辑
+    /// BlackListApplicationForm.xaml 的交互逻辑
     /// </summary>
-    public partial class HelpForm : Window
+    public partial class BlackListApplicationForm : Window
     {
-        public HelpForm()
+        public BlackListApplicationForm()
         {
             InitializeComponent();
         }
     }
-
-
 }
