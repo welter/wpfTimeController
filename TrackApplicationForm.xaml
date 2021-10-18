@@ -6,9 +6,9 @@
         xmlns:local="clr-namespace:wpfTimeController"
         mc:Ignorable="d"
         Title="TrackApplicationForm" Height="305.74" Width="467.554">
-    
+
     <Grid>
-        
+
         <DockPanel>
             <Border DockPanel.Dock="Top" VerticalAlignment="Top" Margin="0,0,-0.333,0" Height="277" >
                 <Grid  Margin="0,0,0,0">
@@ -23,28 +23,59 @@
                     </Grid.RowDefinitions>
                     <Border Grid.Column="0" Grid.Row="0">
                         <Grid Background="#FFE9ECEF">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="4*"/>
+                                <RowDefinition Height="1*"/>
+                                <RowDefinition Height="1*"/>
+                            </Grid.RowDefinitions>
                             <Label Content="当前活动进程" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" Height="30"  />
-                            <ListBox VerticalAlignment="Top" Margin="0,20,0,0"  BorderThickness="0.5" BorderBrush="#FFDDDCDC"  Background="#FFE9ECEF">
+                            <ListBox Grid.Row="0" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="0,20,0,0"  BorderThickness="0.5" BorderBrush="#FFDDDCDC">
                                 <ListBoxItem Content="1" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
                                 <ListBoxItem Content="2" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
                             </ListBox>
+                            <Button Grid.Row="1" Width="80" Height="30"></Button>
+                            <Button Grid.Row="2"  Width="80" Height="30"></Button>
                         </Grid>
                     </Border>
+
+                    <DockPanel Grid.Column="1" Height="100" VerticalAlignment="Center">
+                        <Button DockPanel.Dock="Top"  Content=">"></Button>
+                        <Button DockPanel.Dock="Bottom" Content="&lt;" ></Button>
+                    </DockPanel>
+
                     <Border Grid.Column="2" Grid.Row="0">
                         <Grid Background="#FFE9ECEF">
-                            <Label Content="已选进程" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" Height="30"/>
-                            <ListBox VerticalAlignment="Top" Margin="0,20,0,0"  BorderThickness="0.5" BorderBrush="#FFDDDCDC" Background="#FFE9ECEF">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="4*"/>
+                                <RowDefinition Height="2*"/>
+                            </Grid.RowDefinitions>
+                            <Label Content="已选进程" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" Height="30"  />
+                            <ListBox Grid.Row="0" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="0,20,0,0"  BorderThickness="0.5" BorderBrush="#FFDDDCDC">
                                 <ListBoxItem Content="1" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
                                 <ListBoxItem Content="2" Padding="0,0,0,0" Height="15" Margin="0,0,0,0"/>
                             </ListBox>
+                            <Border Grid.Row="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="1*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Margin="2,2,2,2" BorderThickness="0.5" BorderBrush="Black">
+                                        <StackPanel >
+                                            <CheckBox Content="1" DockPanel.Dock="Right" VerticalAlignment="Top" Width="100" Margin="5,10"/>
+                                            <CheckBox Content="2" DockPanel.Dock="Right" VerticalAlignment="Top" Width="100" Margin="5,10"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Button Grid.Column="1"  Width="50"/>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </Border>
-                    <Border DockPanel.Dock="Bottom" Grid.Row="1" Grid.ColumnSpan="3" VerticalAlignment="Bottom" Margin="0,0,0,0" Height="38">
-                        <Label Content="1"/>
-                    </Border>
+                    <Button Grid.Row="1" Grid.Column="0"/>
+                    <Button Grid.Row="1" Grid.Column="2"/>
                 </Grid>
             </Border>
-        <!--    <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,0,0,0" Height="30">
+            <!--    <Border DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="0,0,0,0" Height="30">
                 <Label Content="1"/>
             </Border> -->
         </DockPanel>

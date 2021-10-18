@@ -5,12 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:wpfTimeController"
         mc:Ignorable="d"
-        Title="ReduceMainForm" Height="192.429" Width="268.386">
+        WindowStyle="None"
+        Title="ReduceMainForm"  Height="101.78" Width="170.846">
+
     <Grid Margin="0,0,0,0">
+
         <Border>
             <StackPanel>
-                <Label Content="持续工作时间" Margin="5,10" FontSize="22"/>
-                <TextBox Text="00:00" VerticalAlignment="Top" VerticalContentAlignment="Center" HorizontalAlignment="Center" HorizontalContentAlignment="Center" Margin="0,2,0,0" Height="80" Width="200" BorderThickness="0" Foreground="#FF645F60" FontSize="64" FontWeight="Bold" Background="#FFF9AA33"/>
+                <Label Content="持续工作时间" Margin="5,5,0,0" FontSize="12"/>
+                <TextBox Text="00:00" VerticalAlignment="Top" VerticalContentAlignment="Center" HorizontalAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,0" Height="40" Width="90" BorderThickness="0" Foreground="#FF645F60" FontSize="28" FontWeight="Bold" Background="#FFF9AA33"/>
                 <Button Content="&lt;" Padding="0,0,0,0" HorizontalAlignment="Right" HorizontalContentAlignment="Center" Height="20" Width="20" FontSize="15" Margin="114,0,5,0"/>
             </StackPanel>
         </Border>

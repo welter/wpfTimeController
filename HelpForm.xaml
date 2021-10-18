@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:wpfTimeController"
         mc:Ignorable="d"
-        Title="HelpForm" Height="408.569" Width="749.085">
+        Title="HelpForm" Height="423.36" Width="750.223">
     <Grid Background="#FFE6E6E4">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*"/>
