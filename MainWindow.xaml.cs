@@ -31,6 +31,8 @@ namespace wpfTimeController
             ni.DoubleClick +=
              delegate (object sender, EventArgs args)
              {
+                 var win = new UnlockForm();
+                 win.ShowDialog(this);
                  this.Show();
                  this.WindowState = WindowState.Normal;
              };

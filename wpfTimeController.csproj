@@ -125,6 +125,9 @@
     <Compile Include="TrackApplicationForm.xaml.cs">
       <DependentUpon>TrackApplicationForm.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UnlockForm.xaml.cs">
+      <DependentUpon>UnlockForm.xaml</DependentUpon>
+    </Compile>
     <Page Include="About.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -241,6 +244,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="TrackApplicationForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UnlockForm.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
