@@ -116,7 +116,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Model\AppInfo.cs" />
+    <Compile Include="Model\ProcessInfo.cs" />
+    <Compile Include="Service\IProcessService.cs" />
+    <Compile Include="Service\ProcessesService.cs" />
+    <Compile Include="ViewModel\ProcessItemViewModel.cs" />
     <Compile Include="Views\AboutForm.xaml.cs">
       <DependentUpon>AboutForm.xaml</DependentUpon>
     </Compile>
