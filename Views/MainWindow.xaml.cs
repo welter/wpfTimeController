@@ -53,7 +53,7 @@ namespace wpfTimeController
 
         private void MenuAbout_Click(object sender, RoutedEventArgs e)
         {
-            var win = new About();
+            var win = new AboutForm();
             win.ShowDialog(this);
         }
 
