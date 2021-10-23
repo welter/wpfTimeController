@@ -6,14 +6,13 @@
         xmlns:local="clr-namespace:wpfTimeController"
         xmlns:ig="http://schemas.infragistics.com/xaml" x:Class="wpfTimeController.MainWindow"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        mc:Ignorable="d"
+    mc:Ignorable="d"
      TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.FontWeight="Medium"
         TextElement.FontSize="14"
         FontFamily="{materialDesign:MaterialDesignFont}"
         Title="MainWindow" Height="358.154" Width="594.842">
-
     <Grid  Margin="0,0,0,0" Background="#FFB0BEC5" >
 
         <Grid.RowDefinitions>
@@ -68,8 +67,31 @@
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" Margin="6,0,3,0">
                                 <Label  Content="活跃的"  Padding="0,3,0,0" DockPanel.Dock="Top" Margin="10,0,0,0" Height="auto" Width="auto" FontSize="12"/>
-                                <TextBox Name="txtboxActive" DockPanel.Dock="Bottom" Margin="0,0,0,0" TextWrapping="Wrap" Text="" IsReadOnly="True" BorderBrush="{DynamicResource {x:Static SystemColors.AppWorkspaceBrushKey}}" BorderThickness="2" FontSize="12" Height="90" Width="auto" Background="White"/>
-                            </DockPanel>
+                                <DataGrid AutoGenerateColumns="False" GridLinesVisibility="None" CanUserDeleteRows="False"
+CanUserAddRows="False" Margin="0,4" Grid.Row="1" FontSize="11" ItemsSource="{Binding ActiveProcessList}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="菜品" Binding="{Binding ProcessInfo.ProcessName}" Width="12" />
+                                        <DataGridTextColumn Header="种类" Binding="{Binding  ProcessInfo.PID}" Width="12" />
+                                        <DataGridTextColumn Header="点评" Binding="{Binding  ProcessInfo.ProcessTitle}" Width="12" />
+                                        <DataGridTextColumn Header="推荐分数" Binding="{Binding  ProcessInfo.ProcessName}" Width="12" />
+                                        <DataGridTemplateColumn Header="选中"  Width="120">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox 
+VerticalAlignment="Center" HorizontalAlignment="Center"
+ />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="2">
+                                    <TextBlock Text="共计" VerticalAlignment="Center" />
+                                    <TextBox IsReadOnly="True" TextAlignment="Center" Width="120" Text="{Binding Count}" Margin="4,0" />
+                                    <Button Content="Order" Height="24" Width="120"  />
+                                </StackPanel>
+
+                </DockPanel>
                             <DockPanel Grid.Row="1" Margin="6,0,3,0">
                                 <Label Content="例外"  Padding="0,0,0,0" DockPanel.Dock="Top" Margin="10,0,0,0" Height="auto" Width="auto" FontSize="12"/>
                                 <TextBox Name="txtboxBlacklist" DockPanel.Dock="Bottom" Margin="0,0,0,0" TextWrapping="Wrap" Text="" IsReadOnly="True" BorderBrush="{DynamicResource {x:Static SystemColors.AppWorkspaceBrushKey}}" BorderThickness="2" FontSize="12" Height="90" Width="auto" Background="White"/>

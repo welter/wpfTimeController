@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using wpfTimeController.ViewModel;
 
 namespace wpfTimeController
 {
@@ -23,7 +24,8 @@ namespace wpfTimeController
         public MainWindow()
         {
             InitializeComponent();
-            InitializeComponent();
+            //设置数据来源
+            this.DataContext = new MainWindowViewModel();
 
             System.Windows.Forms.NotifyIcon ni = new System.Windows.Forms.NotifyIcon();
             ni.Icon = new System.Drawing.Icon("Main.ico");
