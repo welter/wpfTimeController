@@ -17,7 +17,7 @@ namespace wpfTimeController.ViewModel
         private void LoadActiveProcesses()
         {
             IProcessesService i = new ProcessesService();
-            var PiL=i.GetProcess("test");
+            var PiL=i.GetAllProcess();
             ActiveProcessList = new List<ProcessItemViewModel>();
             foreach (var Pi in PiL)
             {

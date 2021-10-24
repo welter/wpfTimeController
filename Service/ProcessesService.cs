@@ -9,17 +9,21 @@ namespace wpfTimeController.Service
     class ProcessesService : IProcessesService
     {
         private List <ProcessInfo> _P1=new List<ProcessInfo>();
-        public List<ProcessInfo> GetProcess(string name)
+        public ProcessInfo GetProcess(string name)
         {
-            return Array.FindAll(_P1.ToArray(), x => x.ProcessName == name).ToList();
+            return Array.Find(_P1.ToArray(), x => x.ProcessName == name);
         }
-        public List<ProcessInfo> GetProcess(UInt32 id)
+        public ProcessInfo GetProcess(UInt32 id)
         {
-            return Array.FindAll(_P1.ToArray(), x => x.PID == id).ToList();
+            return Array.Find(_P1.ToArray(), x => x.PID == id);
         }
-        public List<ProcessInfo> GetProcessByTitle(string title)
+        public ProcessInfo GetProcessByTitle(string title)
         {
-            return Array.FindAll(_P1.ToArray(), x => x.ProcessTitle == title).ToList();
+            return Array.Find(_P1.ToArray(), x => x.ProcessTitle == title);
+        }
+        public List<ProcessInfo> GetAllProcess()
+        {
+            return _P1;
         }
         public ProcessesService()
         {
