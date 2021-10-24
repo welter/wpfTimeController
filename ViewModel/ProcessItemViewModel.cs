@@ -8,9 +8,9 @@ using wpfTimeController.Model;
 
 namespace wpfTimeController.ViewModel
 {
-    class ProcessItemViewModel: NotificationObject
+    class ProcessItemViewModel : NotificationObject
     {
-        public ProcessInfo ProcessInfo{ get; set; }
+        public ProcessInfo ProcessInfo { get; set; }
         //将IsSelected属性和ProcessInfo中的属性一起作为ProcessViewItemViewModel里的属性
         private bool isSelected;
 
@@ -21,7 +21,7 @@ namespace wpfTimeController.ViewModel
             {
                 //RaisePorpertyChanged方法，源于引入的Microsoft.Practices.Prism.ViewModel中的dll属性
                 isSelected = value;
-                this.RaisePropertyChanged("IsSelected");//"IsSelected"属性值变化之后，自动通知使用该属性的方法，有点观察者模式的意思
+                RaisePropertyChanged("IsSelected");//"IsSelected"属性值变化之后，自动通知使用该属性的方法，有点观察者模式的意思
             }
         }
     }

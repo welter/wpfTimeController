@@ -9,11 +9,11 @@ namespace wpfTimeController.Service
 {
     public interface IProcessesService
     {
-        ProcessInfo GetProcess(string name);
+        List<ProcessInfo> GetProcess(string name);
 
-        ProcessInfo GetProcess(UInt32 id);
+        List<ProcessInfo> GetProcess(UInt32 id);
 
-        ProcessInfo GetProcessByTitle(string title);
+        List<ProcessInfo> GetProcessByTitle(string title);
 
     }
 

@@ -6,21 +6,26 @@ using System.Threading.Tasks;
 using wpfTimeController.Model;
 namespace wpfTimeController.Service
 {
-    class ProcessesService:IProcessesService
+    class ProcessesService : IProcessesService
     {
-        private ProcessInfo[] _P1;
-        public ProcessInfo GetProcess(string name)
+        private List <ProcessInfo> _P1=new List<ProcessInfo>();
+        public List<ProcessInfo> GetProcess(string name)
         {
-
-            return Array.Find(this._P1, x => x.ProcessName == name);
+            return Array.FindAll(_P1.ToArray(), x => x.ProcessName == name).ToList();
         }
-        public ProcessInfo GetProcess(UInt32 id)
+        public List<ProcessInfo> GetProcess(UInt32 id)
         {
-            return Array.Find(this._P1, x => x.PID == id);
+            return Array.FindAll(_P1.ToArray(), x => x.PID == id).ToList();
         }
-        public ProcessInfo GetProcessByTitle(string title)
+        public List<ProcessInfo> GetProcessByTitle(string title)
         {
-            return Array.Find(this._P1, x => x.ProcessTitle == title);
+            return Array.FindAll(_P1.ToArray(), x => x.ProcessTitle == title).ToList();
+        }
+        public ProcessesService()
+        {
+            var p = new ProcessInfo();
+            p.ProcessName = "test";
+            _P1.Add(p);
         }
     }
 

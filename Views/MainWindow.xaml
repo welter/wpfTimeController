@@ -68,13 +68,14 @@
                             <DockPanel Grid.Row="0" Margin="6,0,3,0">
                                 <Label  Content="活跃的"  Padding="0,3,0,0" DockPanel.Dock="Top" Margin="10,0,0,0" Height="auto" Width="auto" FontSize="12"/>
                                 <DataGrid AutoGenerateColumns="False" GridLinesVisibility="None" CanUserDeleteRows="False"
-CanUserAddRows="False" Margin="0,4" Grid.Row="1" FontSize="11" ItemsSource="{Binding ActiveProcessList}">
+CanUserAddRows="False" Margin="0,3.667,0,4" Grid.Row="1" FontSize="11" ItemsSource="{Binding ActiveProcessList}" Width="137">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="菜品" Binding="{Binding ProcessInfo.ProcessName}" Width="12" />
-                                        <DataGridTextColumn Header="种类" Binding="{Binding  ProcessInfo.PID}" Width="12" />
-                                        <DataGridTextColumn Header="点评" Binding="{Binding  ProcessInfo.ProcessTitle}" Width="12" />
-                                        <DataGridTextColumn Header="推荐分数" Binding="{Binding  ProcessInfo.ProcessName}" Width="12" />
-                                        <DataGridTemplateColumn Header="选中"  Width="120">
+                                        <DataGridTextColumn Header="进程名" Binding="{Binding ProcessInfo.ProcessName}" MinWidth="15" />
+                                        <DataGridTextColumn Header="ID" Binding="{Binding  ProcessInfo.PID}" MinWidth="15" />
+                                        <DataGridCheckBoxColumn Header="asd" MinWidth="15"/>
+                                        <!--<DataGridTextColumn Header="点评" Binding="{Binding  ProcessInfo.ProcessTitle}" Width="12" />
+                                        <DataGridTextColumn Header="推荐分数" Binding="{Binding  ProcessInfo.ProcessName}" Width="12" />-->
+                                        <!--                                       <DataGridTemplateColumn Header="选中"  Width="120">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox 
@@ -82,16 +83,16 @@ VerticalAlignment="Center" HorizontalAlignment="Center"
  />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
+                                        </DataGridTemplateColumn> -->
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="2">
+                                <!--<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="2">
                                     <TextBlock Text="共计" VerticalAlignment="Center" />
                                     <TextBox IsReadOnly="True" TextAlignment="Center" Width="120" Text="{Binding Count}" Margin="4,0" />
                                     <Button Content="Order" Height="24" Width="120"  />
-                                </StackPanel>
+                                </StackPanel> -->
 
-                </DockPanel>
+                            </DockPanel>
                             <DockPanel Grid.Row="1" Margin="6,0,3,0">
                                 <Label Content="例外"  Padding="0,0,0,0" DockPanel.Dock="Top" Margin="10,0,0,0" Height="auto" Width="auto" FontSize="12"/>
                                 <TextBox Name="txtboxBlacklist" DockPanel.Dock="Bottom" Margin="0,0,0,0" TextWrapping="Wrap" Text="" IsReadOnly="True" BorderBrush="{DynamicResource {x:Static SystemColors.AppWorkspaceBrushKey}}" BorderThickness="2" FontSize="12" Height="90" Width="auto" Background="White"/>
@@ -119,18 +120,18 @@ VerticalAlignment="Center" HorizontalAlignment="Center"
                     <Grid>
                         <Label DockPanel.Dock="Right" Content="工作时间"  VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Height="20" Width="68"  HorizontalAlignment="Right" Margin="98,-5,10,50" FontFamily="SimSun" FontWeight="Bold" FontSize="12"/>
                         <Label DockPanel.Dock="Left" Content="休息时间" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Height="20" HorizontalAlignment="Left"  Margin="10,-5,0,50" Width="68" FontFamily="SimSun" FontWeight="Bold"  FontSize="12"/>
-                    <ComboBox  DockPanel.Dock="Left"  AllowDrop="True" SelectedIndex="0" Text=" sg" HorizontalAlignment="Left" VerticalAlignment="Bottom" HorizontalContentAlignment="Center" Height="25" Width="60" Margin="10,5,10,35" FontSize="12">
-                        <ComboBoxItem Content="10分钟"/>
-                        <ComboBoxItem Content="15分钟"/>
-                        <ComboBoxItem Content="30分钟"/>
-                        <ComboBoxItem Content="60分钟"/>
-                    </ComboBox>
-                    <ComboBox  AllowDrop="True"  SelectedIndex="0" Text=" sg" HorizontalAlignment="Right" VerticalAlignment="Bottom" HorizontalContentAlignment="Center" Height="25" Width="60" Margin="10,0,10,35" FontSize="12">
-                        <ComboBoxItem Content="10分钟"/>
-                        <ComboBoxItem Content="15分钟"/>
-                        <ComboBoxItem Content="30分钟"/>
-                        <ComboBoxItem Content="60分钟"/>
-                    </ComboBox>
+                        <ComboBox  DockPanel.Dock="Left"  AllowDrop="True" SelectedIndex="0" Text=" sg" HorizontalAlignment="Left" VerticalAlignment="Bottom" HorizontalContentAlignment="Center" Height="25" Width="60" Margin="10,5,10,35" FontSize="12">
+                            <ComboBoxItem Content="10分钟"/>
+                            <ComboBoxItem Content="15分钟"/>
+                            <ComboBoxItem Content="30分钟"/>
+                            <ComboBoxItem Content="60分钟"/>
+                        </ComboBox>
+                        <ComboBox  AllowDrop="True"  SelectedIndex="0" Text=" sg" HorizontalAlignment="Right" VerticalAlignment="Bottom" HorizontalContentAlignment="Center" Height="25" Width="60" Margin="10,0,10,35" FontSize="12">
+                            <ComboBoxItem Content="10分钟"/>
+                            <ComboBoxItem Content="15分钟"/>
+                            <ComboBoxItem Content="30分钟"/>
+                            <ComboBoxItem Content="60分钟"/>
+                        </ComboBox>
                     </Grid>
                 </DockPanel>
             </Border>
