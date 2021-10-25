@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Practices.Prism.ViewModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,9 +8,19 @@ using wpfTimeController.Model;
 using wpfTimeController.Service;
 namespace wpfTimeController.ViewModel
 {
-    class MainWindowViewModel
+    class MainWindowViewModel: NotificationObject
     {
-        public List<ProcessItemViewModel> ActiveProcessList;
+        private List<ProcessItemViewModel> activeProcessList;
+        public List<ProcessItemViewModel> ActiveProcessList
+        {
+            get { return activeProcessList; }
+            set
+            {
+                activeProcessList = value;
+                this.RaisePropertyChanged("ActiveProcessList");
+            }
+        }
+
         public MainWindowViewModel()
         {
             LoadActiveProcesses();

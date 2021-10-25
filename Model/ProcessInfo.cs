@@ -16,9 +16,4 @@ namespace wpfTimeController.Model
         public string ProcessTitle { get; set; }
         public double ProcessCpusage { get; set; }
     }
-    public class ProcessList:NotificationObject
-    {
-        private ProcessInfo[] Processes { get; set; }
-
-    }
 }

@@ -12,7 +12,7 @@
         TextElement.FontWeight="Medium"
         TextElement.FontSize="14"
         FontFamily="{materialDesign:MaterialDesignFont}"
-        Title="MainWindow" Height="358.154" Width="594.842">
+        Title="MainWindow" Height="557.154" Width="908.842">
     <Grid  Margin="0,0,0,0" Background="#FFB0BEC5" >
 
         <Grid.RowDefinitions>
@@ -20,11 +20,12 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="38*" />
-            <ColumnDefinition Width="60*"/>
-            <ColumnDefinition Width="45*"/>
+            <ColumnDefinition Width="156*" />
+            <ColumnDefinition Width="247*"/>
+            <ColumnDefinition Width="150*"/>
+            <ColumnDefinition Width="35*"/>
         </Grid.ColumnDefinitions>
-        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" >
+        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" >
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="20*"/>
                 <ColumnDefinition Width="1*"/>
@@ -55,7 +56,7 @@
             </Menu>
             <Button Click="ButtonMin_Click" Content="." Grid.Column="1" Padding="0,0,0,0" ToolTip="最小化" HorizontalContentAlignment="Center" Height="20" Width="20" FontSize="15" Margin="0,0,0,0" Background="#FFC6AC56"/>
         </Grid>
-        <Grid Margin="0,0"  Grid.Row="1" Grid.Column="0"  Height="auto" Width="auto">
+        <Grid Margin="0,0,0,-0.333"  Grid.Row="1" Grid.Column="0"  Height="auto" Width="auto">
             <Border BorderThickness="0.5" Margin="2,2,2,2" BorderBrush="#FFFCFAFA">
                 <DockPanel Margin="0,0,0,0">
                     <Button Click="OnClick" DockPanel.Dock="Top" x:Name="btnStart" Content="启动" VerticalContentAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,5" Width="130" Height="50" FontSize="34" FontFamily="Times New Roman" FontWeight="Bold" RenderTransformOrigin="0.639,0.98" Foreground="White" />
@@ -71,8 +72,8 @@
 CanUserAddRows="False" Margin="0,3.667,0,4" Grid.Row="1" FontSize="11" ItemsSource="{Binding ActiveProcessList}" Width="137">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="进程名" Binding="{Binding ProcessInfo.ProcessName}" MinWidth="15" />
-                                        <DataGridTextColumn Header="ID" Binding="{Binding  ProcessInfo.PID}" MinWidth="15" />
-                                        <DataGridCheckBoxColumn Header="asd" MinWidth="15"/>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding  ProcessInfo.ProcessName}" MinWidth="15" />
+
                                         <!--<DataGridTextColumn Header="点评" Binding="{Binding  ProcessInfo.ProcessTitle}" Width="12" />
                                         <DataGridTextColumn Header="推荐分数" Binding="{Binding  ProcessInfo.ProcessName}" Width="12" />-->
                                         <!--                                       <DataGridTemplateColumn Header="选中"  Width="120">
@@ -102,7 +103,7 @@ VerticalAlignment="Center" HorizontalAlignment="Center"
                 </DockPanel>
             </Border>
         </Grid>
-        <Grid Margin="0,0,0,0" Grid.Row="1" Grid.Column="1"  >
+        <Grid Margin="0,0" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="1"  >
             <Grid.RowDefinitions>
                 <RowDefinition Height="55*"/>
                 <RowDefinition Height="45*"/>
@@ -136,7 +137,7 @@ VerticalAlignment="Center" HorizontalAlignment="Center"
                 </DockPanel>
             </Border>
         </Grid>
-        <Grid Margin="0,0,0,0" Grid.Row="1" Grid.Column="2"  >
+        <Grid Margin="0.333,0,0,-0.333" Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2"  >
             <Grid.RowDefinitions>
                 <RowDefinition Height="55*"/>
                 <RowDefinition Height="45*"/>
