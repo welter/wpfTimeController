@@ -15,6 +15,8 @@ namespace wpfTimeController.Service
 
         ProcessInfo GetProcessByTitle(string title);
         List<ProcessInfo> GetAllProcess();
+
+        List<ProcessInfo> Update();
     }
 
 }
