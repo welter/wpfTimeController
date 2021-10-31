@@ -117,6 +117,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Model\ProcessInfo.cs" />
+    <Compile Include="Model\ControlTask.cs" />
     <Compile Include="Service\IProcessService.cs" />
     <Compile Include="Service\ProcessesService.cs" />
     <Compile Include="ViewModel\MainWindowViewModel.cs" />
