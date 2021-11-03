@@ -4,6 +4,9 @@
 cmake_minimum_required (VERSION 3.8)
 
 project ("timeControllerService")
+
+include(C:/vcpkg/scripts/buildsystems/vcpkg.cmake)
+
 # 将源代码添加到此项目的可执行文件。
 
 #if (CMAKE_SYSTEM_NAME MATCHES "Windows")
@@ -21,9 +24,10 @@ project ("timeControllerService")
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 
 	# 添加源文件，生成可执行文件
-	add_executable (timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h"  )
+	add_executable (timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h")
 	# add_executable(timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h"  ${STDAFX_PCH_C} "Protocol/targetver.h" )
 	# 添加链接库	
+	add_subdirectory("sqlite3")
 # 此处是关键，添加我们在msvcpch.cmake定义的宏
 	#USE_MSVC_PCH(timeControllerService stdafx.h ${STDAFX_PCH_C})
 endif ()

@@ -1,0 +1,6 @@
+# CMake generation dependency list for this directory.
+C:/Users/welter/source/repos/wpfTimeController/timeControllerService/sqlite3/CMakeLists.txt
+C:/vcpkg/installed/x64-windows/share/unofficial-sqlite3/unofficial-sqlite3-config.cmake
+C:/vcpkg/installed/x64-windows/share/unofficial-sqlite3/unofficial-sqlite3-targets-debug.cmake
+C:/vcpkg/installed/x64-windows/share/unofficial-sqlite3/unofficial-sqlite3-targets-release.cmake
+C:/vcpkg/installed/x64-windows/share/unofficial-sqlite3/unofficial-sqlite3-targets.cmake
