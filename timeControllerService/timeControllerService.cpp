@@ -29,10 +29,11 @@ SERVICE_STATUS_HANDLE hServiceStatus;
 SERVICE_STATUS status;
 DWORD dwThreadID;
 
-int APIENTRY WinMain(HINSTANCE hInstance,
-    HINSTANCE hPrevInstance,
-    LPSTR     lpCmdLine,
-    int       nCmdShow)
+int APIENTRY WinMain(
+    _In_ HINSTANCE hInstance,
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPSTR     lpCmdLine,
+    _In_ int       nCmdShow)
 {
     Init();
 
@@ -44,11 +45,11 @@ int APIENTRY WinMain(HINSTANCE hInstance,
         { NULL, NULL }
     };
 
-    if (stricmp(lpCmdLine, "/install") == 0)
+    if (_stricmp(lpCmdLine, "/install") == 0)
     {
         Install();
     }
-    else if (stricmp(lpCmdLine, "/uninstall") == 0)
+    else if (_stricmp(lpCmdLine, "/uninstall") == 0)
     {
         Uninstall();
     }
@@ -129,7 +130,11 @@ void WINAPI ServiceMain()
     {
 
         //新建文件
-        FILE* fp0 = fopen("c:/tt.txt", "a");
+
+        FILE* fp0;
+        if (fopen_s(&fp0, "c:/tt.txt", "a"))
+            return ;
+
         fclose(fp0);
         Sleep(10000);
         i++;
@@ -334,7 +339,8 @@ void LogEvent(LPCTSTR pFormat, ...)
     va_list pArg;
 
     va_start(pArg, pFormat);
-    _vstprintf(chMsg, pFormat, pArg);
+
+    _vstprintf_s(chMsg, pFormat, pArg);
     va_end(pArg);
 
     lpszStrings[0] = chMsg;
