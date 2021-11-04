@@ -11,7 +11,10 @@
 #include "tchar.h"
 #include <windows.h>
 #include<iostream>
+#include<SQLiteCpp/SQLiteCpp.h>
+using namespace SQLite;
 using namespace std;
+
 
 
 //定义全局函数变量

@@ -1,28 +1,20 @@
-#include <stdio.h>
-#include <string>
-#include <iostream>
-#include <sqlite3.h> 
+#include "Sqlite3Helper.h"
 using namespace std;
 
-string s;
-int callback(void* para, int nCount, char** pValue, char** pName) {
-    s = "";
-    for (int i = 0; i < nCount; i++) {
-        s += pValue[i];
+    Sqlite3Helper::Sqlite3Helper() {
     }
-    return 0;
-}
-
-class database {
-public:
-    database() {
-        rc = sqlite3_open("database.db", &db);
-    }
-    ~database() {
-        cout << "bye!" << endl;
+    Sqlite3Helper::~Sqlite3Helper() {
         sqlite3_close(db);
     }
-    void new_table() {
+    uint16_t Sqlite3Helper::openDatabase(const char* dbname) {
+        return sqlite3_open(dbname, &db);
+    }
+
+    void Sqlite3Helper::closeDatabase() {
+        sqlite3_close(db);
+    }
+
+    void Sqlite3Helper::new_table() {
         const char* sql;
         string name;
         string temp;
@@ -34,7 +26,7 @@ public:
         sql = temp.c_str();
         rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
     }
-    void add() {
+    void Sqlite3Helper::add() {
         const char* sql;
         string table_name, name, age, tmp;
         cout << "please input table's name" << endl;
@@ -48,7 +40,7 @@ public:
         sql = tmp.c_str();
         rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
     }
-    void check() {
+    void Sqlite3Helper::check() {
         const char* sql;
         string table_name, name, tmp;
         cout << "please input table's name" << endl;
@@ -60,7 +52,7 @@ public:
         rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
         cout << s << endl;
     }
-    void loop() {
+    void Sqlite3Helper::loop() {
         int c;
         while (1) {
             cout << "-----------------------------\n" <<
@@ -84,16 +76,7 @@ public:
             }
         }
     }
-private:
-    sqlite3* db;
-    char* zErrMsg = 0;
-    int rc;
-};
-int main() {
-    database a;
-    a.loop();
 
-}
 //gcc -shared sqlite3.c -o sqlite3.dll  winÏÂÁ´½Ó
 //gcc 1.cpp -lstdc++ sqlite3.c          winÏÂ±àÒë  
 
