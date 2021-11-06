@@ -5,17 +5,20 @@
 
 // ServiceTest.cpp : Defines the entry point for the application.
 //
-
+#include <fcntl.h>
+#include <io.h>
 #include "Protocol/stdafx.h"
 #include "stdio.h"
 #include "tchar.h"
 #include <windows.h>
 #include<iostream>
 #include<SQLiteCpp/SQLiteCpp.h>
+
+
 using namespace SQLite;
 using namespace std;
 
-
+//SQLite::Statement   query(db, "SELECT * FROM test WHERE size > ?");
 
 //定义全局函数变量
 void Init();
@@ -25,6 +28,14 @@ BOOL Uninstall();
 void LogEvent(LPCTSTR pszFormat, ...);
 void WINAPI ServiceMain();
 void WINAPI ServiceStrl(DWORD dwOpcode);
+
+
+
+void startConsoleWin(int width, int height, char* fname);
+BOOL ConsoleScanf(char* fmt, int& len);
+BOOL ConsolePrintf(char* fmt, ...);
+
+
 
 TCHAR szServiceName[] = _T("ServiceTest");
 BOOL bInstall;
@@ -39,6 +50,14 @@ int APIENTRY WinMain(
     _In_ int       nCmdShow)
 {
     Init();
+
+
+
+    //startConsoleWin(80,24,"test");
+    //ConsolePrintf("%d%s", 10, "haha\n");
+    //char* ch = new char[1024];
+    //int len = 0;
+    //
 
     dwThreadID = ::GetCurrentThreadId();
 
@@ -112,6 +131,8 @@ void WINAPI ServiceMain()
     status.dwCurrentState = SERVICE_START_PENDING;
     status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 
+    //db.~Database();
+    //query.bind(1, 6);
     //注册服务控制
     hServiceStatus = RegisterServiceCtrlHandler(szServiceName, ServiceStrl);
     if (hServiceStatus == NULL)
@@ -126,11 +147,24 @@ void WINAPI ServiceMain()
     status.dwWaitHint = 0;
     status.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus(hServiceStatus, &status);
+    char* s = "g:\\tmp\\test.db";
+    char* s2 = "";
 
+    try {
+        SQLite::Database db(s, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE, 0);
+        db.exec("CREATE TABLE COMPANY(ID INT PRIMARY KEY NOT NULL,NAME TEXT  NOT NULL,AGE  INT NOT NULL, ADDRESS CHAR(50),SALARY  REAL); ");
+    }
+    catch (std::exception& e)
+    {
+        //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+        exit(1);
+    }
     //模拟服务的运行，10后自动退出。应用时将主要任务放于此即可
     int i = 0;
+
     while (i < 10)
     {
+
 
         //新建文件
 
@@ -354,4 +388,70 @@ void LogEvent(LPCTSTR pFormat, ...)
         ReportEvent(hEventSource, EVENTLOG_INFORMATION_TYPE, 0, 0, NULL, 1, 0, (LPCTSTR*)&lpszStrings[0], NULL);
         DeregisterEventSource(hEventSource);
     }
+}
+
+#ifdef _DEBUG
+HANDLE __hStdOut = NULL;
+HANDLE __hStdIn = NULL;
+#endif
+
+
+void startConsoleWin(int width, int height, char* fname)
+{
+#ifdef _DEBUG
+    AllocConsole();
+    SetConsoleTitle("Debug Window");
+    __hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    __hStdIn = GetStdHandle(STD_INPUT_HANDLE);
+
+
+    COORD co = { width,height };
+    SetConsoleScreenBufferSize(__hStdOut, co);
+
+#endif
+}
+
+BOOL ConsoleScanf(char* fmt, int& len)
+{
+#ifdef _DEBUG
+
+    DWORD cCharsRead = 1024;
+    BOOL flag = false;
+
+    if (__hStdOut)
+        flag = ReadConsole(__hStdIn, fmt, 1024, (DWORD*)&len, NULL);
+
+    if (flag)
+    {
+        fmt[len] = 0;
+    }
+
+    return true;
+#else
+    return false;
+#endif
+}
+
+
+BOOL ConsolePrintf(char* fmt, ...)
+{
+#ifdef _DEBUG
+    char s[300];
+    va_list argptr;
+
+    BOOL flag = false;
+
+    va_start(argptr, fmt);
+    vsprintf(s, fmt, argptr);
+    va_end(argptr);
+
+    DWORD cCharsWritten;
+
+    if (__hStdOut)
+        flag = WriteConsole(__hStdOut, s, strlen(s), &cCharsWritten, NULL);
+
+    return flag;
+#else
+    return FALSE;
+#endif
 }
