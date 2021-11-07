@@ -1,20 +1,21 @@
 #include "Sqlite3Helper.h"
 using namespace std;
 
-    Sqlite3Helper::Sqlite3Helper() {
-    }
+    Sqlite3Helper::Sqlite3Helper() {}
     Sqlite3Helper::~Sqlite3Helper() {
-        sqlite3_close(db);
+        //if (db!=Null)  db.~Database();
     }
-    uint16_t Sqlite3Helper::openDatabase(const char* dbname) {
-        return sqlite3_open(dbname, &db);
+    Database* Sqlite3Helper::openDatabase(const char* dbname) {
+        db = &Database(dbname, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);     
+        return db;
+
     }
 
     void Sqlite3Helper::closeDatabase() {
-        sqlite3_close(db);
+        db->~Database();
     }
 
-    void Sqlite3Helper::new_table() {
+    void Sqlite3Helper::new_table(const char* tableName, cstruct tableStruct[]) {
         const char* sql;
         string name;
         string temp;

@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
-#include <sqlite3.h> 
+#include <SQLiteCpp/SQLiteCpp.h> 
 using namespace std;
+using namespace SQLite;
 string s;
 int callback(void* para, int nCount, char** pValue, char** pName) {
      s = "";
@@ -11,19 +12,24 @@ int callback(void* para, int nCount, char** pValue, char** pName) {
         s += pValue[i];
     }
     return 0;
-}
+}struct cstruct {
+    const char* name;
+    int type;
+    int clong;
+    int dlong;
+} ;
 
 class Sqlite3Helper {
 private:
-    sqlite3* db;
+    SQLite::Database* db;
     char* zErrMsg = 0;
     uint16_t rc;
 
 public:Sqlite3Helper();
       ~Sqlite3Helper();
-      uint16_t openDatabase(const char* dbname);
+      Database* openDatabase(const char* dbname);
       void closeDatabase();
-      void new_table();
+      void new_table(const char* tableName,cstruct tableStruct[]);
       void add();
       void check();
       void loop();
