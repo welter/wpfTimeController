@@ -27,6 +27,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	add_executable (timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h")
 	# add_executable(timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h"  ${STDAFX_PCH_C} "Protocol/targetver.h" )
 	# 添加链接库	
+	
 	add_subdirectory("sqlite3")
 	find_package(SQLiteCpp CONFIG REQUIRED)
 	target_link_libraries(timeControllerService PRIVATE SQLiteCpp)

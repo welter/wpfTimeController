@@ -15,17 +15,41 @@ using namespace std;
         db->~Database();
     }
 
-    void Sqlite3Helper::new_table(const char* tableName, cstruct tableStruct[]) {
+    void Sqlite3Helper::new_table(const char* tableName, const char* tableStruct[],int structSize) {
         const char* sql;
         string name;
-        string temp;
+        string temp="";
+        string s;
+        for (int i = 0; i++; i < structSize) {
+            s = tableStruct[i];
+            temp += s+",";
+        }
+        temp = temp.substr(0, temp.length() - 1);
         cout << "please enter table's name" << endl;
         cin >> name;
-        temp = "CREATE TABLE " + name +
-            "(NAME          TEXT    NOT NULL," +
-            "AGE            INT     NOT NULL);";
-        sql = temp.c_str();
-        rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
+        try {
+            SQLite::Database db(s, SQLite::OPEN_READWRITE, 0);
+
+        }
+        catch (std::exception& e)
+        {
+            //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+            try {
+                SQLite::Database db(s, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE, 0); 
+            }
+            catch (std::exception& e) {
+                return;
+            }
+        }
+        s = tableName;
+        s= "CREATE TABLE " +s + "(" + temp.c_str() + "); ";
+       db->exec("");
+        
+        //temp = "CREATE TABLE " + name +
+        //    "(NAME          TEXT    NOT NULL," +
+        //    "AGE            INT     NOT NULL);";
+        //sql = temp.c_str();
+        //rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
     }
     void Sqlite3Helper::add() {
         const char* sql;
@@ -39,7 +63,7 @@ using namespace std;
         tmp = "insert into " + table_name + "(NAME, AGE)" +
             "values('" + name + "'," + age + ");";
         sql = tmp.c_str();
-        rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
+        rc = db->exec(sql);
     }
     void Sqlite3Helper::check() {
         const char* sql;
@@ -50,7 +74,7 @@ using namespace std;
         cin >> name;
         tmp = "select AGE from " + table_name + " where NAME='" + name + "';";
         sql = tmp.c_str();
-        rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
+        rc = db->exec(sql);
         cout << s << endl;
     }
     void Sqlite3Helper::loop() {
@@ -64,8 +88,9 @@ using namespace std;
                 "4 to quit\n" <<
                 "-----------------------------\n";
             cin >> c;
+            const char* a[5];
             switch (c) {
-            case 1:new_table();
+            case 1:new_table("s",a, 1);
                 break;
             case 2:add();
                 break;

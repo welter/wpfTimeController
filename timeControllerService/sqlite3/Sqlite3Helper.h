@@ -29,7 +29,7 @@ public:Sqlite3Helper();
       ~Sqlite3Helper();
       Database* openDatabase(const char* dbname);
       void closeDatabase();
-      void new_table(const char* tableName,cstruct tableStruct[]);
+      void new_table(const char* tableName,const char* tableStruct[],int structSize);
       void add();
       void check();
       void loop();

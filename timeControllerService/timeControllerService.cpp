@@ -157,6 +157,7 @@ void WINAPI ServiceMain()
     catch (std::exception& e)
     {
         //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+        LogEvent(_T( e.what()));
         exit(1);
     }
     //模拟服务的运行，10后自动退出。应用时将主要任务放于此即可
