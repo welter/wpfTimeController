@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.20)
 #find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(SQLiteCpp CONFIG REQUIRED)
-ADD_LIBRARY ( helper STATIC "Sqlite3Helper.cpp" "Sqlite3Helper.h")
+ADD_LIBRARY ( helper STATIC "ServiceDBHelper.cpp" "ServiceDBHelper.h")
 #target_link_libraries(helper PRIVATE unofficial::sqlite3::sqlite3)
 target_link_libraries(helper PRIVATE SQLiteCpp)

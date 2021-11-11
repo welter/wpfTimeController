@@ -1,12 +1,12 @@
 #include "ServiceDBHelper.h"
 using namespace std;
+const char* serviceDBPath = "test.db";
 
-    ServiceDBHelper::ServiceDBHelper() {}
-    ServiceDBHelper::~ServiceDBHelper() {
+ServiceDBHelper::~ServiceDBHelper() {
         //if (db!=Null)  db.~Database();
     }
-    Database* ServiceDBHelper::openDatabase(const char* dbname) {
-        db = &Database(dbname, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);     
+    Database* ServiceDBHelper::openDatabase() {
+        db = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);     
         return db;
 
     }
