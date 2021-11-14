@@ -1,28 +1,29 @@
-#include "ServiceDBHelper.h"
-using namespace std;
-const char* serviceDBPath = "test.db";
+#include "RuleService.h"
+namespace DB {
+    using namespace std;
+    const char* serviceDBPath = "test.db";
 
-ServiceDBHelper::~ServiceDBHelper() {
+    RuleService::~RuleService() {
         //if (db!=Null)  db.~Database();
     }
-    Database* ServiceDBHelper::openDatabase() {
-        db = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);     
+    Database* RuleService::openDatabase() {
+        db = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
         return db;
 
     }
 
-    void ServiceDBHelper::closeDatabase() {
+    void RuleService::closeDatabase() {
         db->~Database();
     }
 
-    void ServiceDBHelper::new_table(const char* tableName, const char* tableStruct[],int structSize) {
+    void RuleService::new_table(const char* tableName, const char* tableStruct[], int structSize) {
         const char* sql;
         string name;
-        string temp="";
+        string temp = "";
         string s;
         for (int i = 0; i++; i < structSize) {
             s = tableStruct[i];
-            temp += s+",";
+            temp += s + ",";
         }
         temp = temp.substr(0, temp.length() - 1);
         cout << "please enter table's name" << endl;
@@ -35,23 +36,23 @@ ServiceDBHelper::~ServiceDBHelper() {
         {
             //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
             try {
-                SQLite::Database db(s, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE, 0); 
+                SQLite::Database db(s, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE, 0);
             }
             catch (std::exception& e) {
                 return;
             }
         }
         s = tableName;
-        s= "CREATE TABLE " +s + "(" + temp.c_str() + "); ";
-       db->exec("");
-        
+        s = "CREATE TABLE " + s + "(" + temp.c_str() + "); ";
+        db->exec("");
+
         //temp = "CREATE TABLE " + name +
         //    "(NAME          TEXT    NOT NULL," +
         //    "AGE            INT     NOT NULL);";
         //sql = temp.c_str();
         //rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
     }
-    void ServiceDBHelper::add() {
+    void RuleService::add() {
         const char* sql;
         string table_name, name, age, tmp;
         cout << "please input table's name" << endl;
@@ -65,7 +66,7 @@ ServiceDBHelper::~ServiceDBHelper() {
         sql = tmp.c_str();
         rc = db->exec(sql);
     }
-    void ServiceDBHelper::check() {
+    void RuleService::check() {
         const char* sql;
         string table_name, name, tmp;
         cout << "please input table's name" << endl;
@@ -77,7 +78,7 @@ ServiceDBHelper::~ServiceDBHelper() {
         rc = db->exec(sql);
         cout << s << endl;
     }
-    void ServiceDBHelper::loop() {
+    void RuleService::loop() {
         int c;
         while (1) {
             cout << "-----------------------------\n" <<
@@ -90,7 +91,7 @@ ServiceDBHelper::~ServiceDBHelper() {
             cin >> c;
             const char* a[5];
             switch (c) {
-            case 1:new_table("s",a, 1);
+            case 1:new_table("s", a, 1);
                 break;
             case 2:add();
                 break;
@@ -102,7 +103,7 @@ ServiceDBHelper::~ServiceDBHelper() {
             }
         }
     }
-
+}
 //gcc -shared sqlite3.c -o sqlite3.dll  winœ¬¡¥Ω”
 //gcc 1.cpp -lstdc++ sqlite3.c          winœ¬±‡“Î  
 
