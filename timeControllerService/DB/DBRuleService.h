@@ -1,5 +1,3 @@
-#ifndef RuleService_H
-#define RuleService_H
 #pragma once
 
 #include <stdio.h>
@@ -7,6 +5,7 @@
 #include <iostream>
 #include <SQLiteCpp/SQLiteCpp.h> 
 #include "common.h"
+#include "RuleModel.h"
 namespace DB {
     using namespace std;
     using namespace SQLite;
@@ -44,26 +43,21 @@ namespace DB {
 
     };
 
-    class RuleService {
+    class DBRuleService {
     private:
         SQLite::Database* db;
         char* zErrMsg = 0;
         uint16_t rc;
-
-    public:RuleService();
-          ~RuleService();
-          Database* openDatabase();
-          void closeDatabase();
-          void getRule(const char* ruleName);
-          void getRule(int ruleID);
-          void addRule(tcsRule rule);
-          void setRule(const char* ruleName, tcsRule rule);
-          void setRule(int ruleID, tcsRule rule);
-
-          void new_table(const char* tableName, const char* tableStruct[], int structSize);
-          void add();
-          void check();
-          void loop();
+          bool newTable();
+    public:DBRuleService();
+          ~DBRuleService();
+          Database* database;
+          bool getRule(const char* ruleName);
+          bool getRule(int ruleID);
+          int addRule(DB::TimeControllerRule rule);
+          bool setRule(const char* ruleName, tcsRule rule);
+          bool setRule(int ruleID, tcsRule rule);
+          bool deleteRule(int ruleID);
+          bool clear();
     };
 }
-#endif

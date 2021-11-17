@@ -3,20 +3,20 @@ namespace DB {
     using namespace std;
     const char* serviceDBPath = "test.db";
 
-    RuleService::~RuleService() {
+    DBRuleService::~DBRuleService() {
         //if (db!=Null)  db.~Database();
     }
-    Database* RuleService::openDatabase() {
+    Database* DBRuleService::openDatabase() {
         db = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
         return db;
 
     }
 
-    void RuleService::closeDatabase() {
+    void DBRuleService::closeDatabase() {
         db->~Database();
     }
 
-    void RuleService::new_table(const char* tableName, const char* tableStruct[], int structSize) {
+    void DBRuleService::new_table(const char* tableName, const char* tableStruct[], int structSize) {
         const char* sql;
         string name;
         string temp = "";
@@ -52,7 +52,7 @@ namespace DB {
         //sql = temp.c_str();
         //rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
     }
-    void RuleService::add() {
+    void DBRuleService::add() {
         const char* sql;
         string table_name, name, age, tmp;
         cout << "please input table's name" << endl;
@@ -66,7 +66,7 @@ namespace DB {
         sql = tmp.c_str();
         rc = db->exec(sql);
     }
-    void RuleService::check() {
+    void DBRuleService::check() {
         const char* sql;
         string table_name, name, tmp;
         cout << "please input table's name" << endl;
@@ -78,7 +78,7 @@ namespace DB {
         rc = db->exec(sql);
         cout << s << endl;
     }
-    void RuleService::loop() {
+    void DBRuleService::loop() {
         int c;
         while (1) {
             cout << "-----------------------------\n" <<

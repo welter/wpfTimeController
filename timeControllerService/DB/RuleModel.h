@@ -26,11 +26,11 @@ namespace DB {
         string GetTaskName();
         void SetTaskName(string taskName);
         string GetProgramTitle();
-        void SetProgramTitle(string programtitle);
+        void SetProgramTitle(string programTitle);
         string GetProgramDirectory();
         void SetProgramDirectory(string programDirectory);
         string GetRunPath();
-        void SetRunPath(string RunPath);
+        void SetRunPath(string runPath);
         DB::RunningRule GetRunningRule();
         void SetRunningRule(DB::RunningRule runningRule);
         timeval GetStartTime();
