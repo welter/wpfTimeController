@@ -8,7 +8,7 @@ namespace DB {
     using namespace std;
     class TimeControllerRule {
     private:
-        long Id;
+        int Id;
         string TaskName;
         string ProgramTitle;
         string ProgramDirectory;
@@ -21,8 +21,8 @@ namespace DB {
         timeval TotalTime;
         LimitRule LimitRule;
     public:
-        long GetId();
-        void SetId(long id);
+        int GetId();
+        void SetId(int id);
         string GetTaskName();
         void SetTaskName(string taskName);
         string GetProgramTitle();

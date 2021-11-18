@@ -55,8 +55,8 @@ namespace DB {
           bool getRule(const char* ruleName);
           bool getRule(int ruleID);
           int addRule(DB::TimeControllerRule rule);
-          bool setRule(const char* ruleName, tcsRule rule);
-          bool setRule(int ruleID, tcsRule rule);
+          bool setRule(const char* ruleName, DB::TimeControllerRule rule);
+          bool setRule(int ruleID, DB::TimeControllerRule rule);
           bool deleteRule(int ruleID);
           bool clear();
     };

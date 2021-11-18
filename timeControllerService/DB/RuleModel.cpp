@@ -2,11 +2,11 @@
 namespace DB {
 
 
-    long TimeControllerRule::GetId() {
+    int TimeControllerRule::GetId() {
         return Id;
     }
 
-    void TimeControllerRule::SetId(long id) {
+    void TimeControllerRule::SetId(int id) {
         Id = id;
     }
 
