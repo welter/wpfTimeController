@@ -9,6 +9,7 @@ namespace DB {
     class TimeControllerRule {
     private:
         int Id;
+        string RuleName;
         string TaskName;
         string ProgramTitle;
         string ProgramDirectory;
@@ -16,13 +17,15 @@ namespace DB {
         RunningRule RunningRule;
         timeval StartTime;
         timeval EndTime;
-        timeval PerPeriodTime;
+        int PerPeriodTime;
         int Times;
         timeval TotalTime;
         LimitRule LimitRule;
     public:
         int GetId();
         void SetId(int id);
+        string GetRuleName();
+        void SetRuleName(string ruleName);
         string GetTaskName();
         void SetTaskName(string taskName);
         string GetProgramTitle();
@@ -37,12 +40,12 @@ namespace DB {
         void SetStartTime(timeval startTime);
         timeval GetEndTime();
         void SetEndTime(timeval endTime);
-        timeval GetPerPeriodTime();
-        void SetPerPeriodTime(timeval perPeriodTime);
+        int GetPerPeriodTime();
+        void SetPerPeriodTime(int perPeriodTime);
         int GetTimes();
         void SetTimes(int times);
         timeval GetTotalTime();
-        void SetGetTotalTime(timeval totalTime);
+        void SetTotalTime(timeval totalTime);
         DB::LimitRule GetLimitRule();
         void SetLimitRule(DB::LimitRule limitRule);
     };

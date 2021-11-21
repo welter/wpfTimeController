@@ -1,13 +1,23 @@
 #include "RuleModel.h"
 namespace DB {
 
+    TimeControllerRule::TimeControllerRule() {
 
+    }
     int TimeControllerRule::GetId() {
         return Id;
     }
 
     void TimeControllerRule::SetId(int id) {
         Id = id;
+    }
+
+    string TimeControllerRule::GetRuleName() {
+        return RuleName;
+    }
+
+    void TimeControllerRule::SetRuleName(string ruleName) {
+        RuleName = ruleName;
     }
 
     string TimeControllerRule::GetTaskName() {
@@ -66,11 +76,11 @@ namespace DB {
         EndTime = endTime;
     }
 
-    timeval TimeControllerRule::GetPerPeriodTime() {
+    int TimeControllerRule::GetPerPeriodTime() {
         return PerPeriodTime;
     }
 
-    void TimeControllerRule::SetPerPeriodTime(timeval perPeriodTime) {
+    void TimeControllerRule::SetPerPeriodTime(int perPeriodTime) {
         PerPeriodTime = perPeriodTime;
     }
 
@@ -86,7 +96,7 @@ namespace DB {
         return TotalTime;
     }
 
-    void TimeControllerRule::SetGetTotalTime(timeval totalTime) {
+    void TimeControllerRule::SetTotalTime(timeval totalTime) {
         TotalTime = totalTime;
     }
 
