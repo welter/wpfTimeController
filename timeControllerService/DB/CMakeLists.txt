@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 3.20)
 #find_package(unofficial-sqlite3 CONFIG REQUIRED)
+add_executable (dbtest WIN32 "dbtest.cpp" "dbtest.h")
 find_package(SQLiteCpp CONFIG REQUIRED)
 ADD_LIBRARY ( helper STATIC "DBRuleService.cpp" "DBRuleService.h" "RuleModel.h" "common.h" "RuleModel.cpp" "DBSQL.h")
 #target_link_libraries(helper PRIVATE unofficial::sqlite3::sqlite3)
 target_link_libraries(helper PRIVATE SQLiteCpp)
+TARGET_LINK_LIBRARIES(dbtest PRIVATE helper)

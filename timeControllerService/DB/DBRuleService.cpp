@@ -156,6 +156,7 @@ namespace DB {
 
         mQuery->bind("rulename", ruleName);
         mQuery->exec();
+        return true;
     }
     bool DBRuleService::setRule(int ruleID, DB::TimeControllerRule* rule) {
         const char* sql;
@@ -183,5 +184,7 @@ namespace DB {
 
         mQuery->bind("ruleid", ruleID);
         mQuery->exec();
+        return true;
     }
+    
 }

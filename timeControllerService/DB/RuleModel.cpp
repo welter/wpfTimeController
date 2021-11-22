@@ -1,9 +1,7 @@
 #include "RuleModel.h"
 namespace DB {
 
-    TimeControllerRule::TimeControllerRule() {
 
-    }
     int TimeControllerRule::GetId() {
         return Id;
     }
