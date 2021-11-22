@@ -10,23 +10,23 @@ namespace DB {
     const char* serviceDBPath = "test.db";
 
     DBRuleService::~DBRuleService() {
-        if (database !=NULL)  database->~Database();
+        if (db !=NULL)  db->~Database();
     }
    DBRuleService::DBRuleService() {
        try {
-           database = &Database(serviceDBPath,SQLite::OPEN_READWRITE);
+           db = &Database(serviceDBPath,SQLite::OPEN_READWRITE);
        }
         catch (std::exception& e)
         {
             //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
             try {
-                database = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
+                db = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
             }
             catch (std::exception& e) {
                 return;
             }
         }
-        if (!database->tableExists("RULE")) {
+        if (!db->tableExists("RULE")) {
             newTable();
         }
     }
@@ -34,7 +34,7 @@ namespace DB {
     bool DBRuleService::newTable() {
         const char* sql;
         s = SQL_CreateRuleTable; 
-        return database->exec(s);
+        return db->exec(s);
     }
     int DBRuleService::addRule(TimeControllerRule* rule) {
         const char* sql;
@@ -60,42 +60,128 @@ namespace DB {
         rc = db->exec(sql);
         return rc;
     }
-    bool DBRuleService::getRules(DB::TimeControllerRule** *rule, const char* ruleName) {
+    bool DBRuleService::getRule(DB::TimeControllerRule* rule, const char* ruleName) {
         const char* sql;
-        sql = "asdf";
-        mQuery=&SQLite::Statement(*database, sql);
-        mQuery->bind("");
-        vector<TimeControllerRule*> a;
-        DB::TimeControllerRule* p = new DB::TimeControllerRule [];            
-        a.push_back(r);
-        while (mQuery->executeStep())
+        sql = SQL_GetRuleByName;
+        mQuery=&SQLite::Statement(*db, sql);
+        mQuery->bind("rulename",ruleName);
+        //vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
+        if (mQuery->executeStep())
         {
-            DB::TimeControllerRule* r=new DB::TimeControllerRule; 
-            r->SetId(mQuery->getColumn(0));
-            r->SetRuleName(mQuery->getColumn(1));
-            r->SetTaskName(mQuery->getColumn(2));
-            r->SetProgramTitle(mQuery->getColumn(3));
-            r->SetProgramDirectory(mQuery->getColumn(4));
-            r->SetRunPath(mQuery->getColumn(5));
-            r->SetRunningRule((DB::RunningRule) mQuery->getColumn(6).getInt());
+            //DB::TimeControllerRule* r=new DB::TimeControllerRule; 
+
+            rule->SetId(mQuery->getColumn(0));
+            rule->SetRuleName(mQuery->getColumn(1));
+            rule->SetTaskName(mQuery->getColumn(2));
+            rule->SetProgramTitle(mQuery->getColumn(3));
+            rule->SetProgramDirectory(mQuery->getColumn(4));
+            rule->SetRunPath(mQuery->getColumn(5));
+            rule->SetRunningRule((DB::RunningRule) mQuery->getColumn(6).getInt());
             struct timeval t;
             t.tv_sec = mQuery->getColumn(7).getInt64();
             t.tv_usec = mQuery->getColumn(8).getInt64();
-            r->SetStartTime(t);
+            rule->SetStartTime(t);
             t.tv_sec= mQuery->getColumn(9).getInt64();
             t.tv_usec = mQuery->getColumn(10).getInt64();
-            r->SetEndTime(t);
-            r->SetPerPeriodTime(mQuery->getColumn(11));
-            t.tv_sec = mQuery->getColumn(12).getInt64();
-            t.tv_usec = mQuery->getColumn(13).getInt64();
-            r->SetTotalTime(t);
-            r->SetLimitRule((DB::LimitRule)mQuery->getColumn(14).getInt());
+            rule->SetEndTime(t);
+            rule->SetPerPeriodTime(mQuery->getColumn(11));
+            rule->SetTimes(mQuery->getColumn(12));
+            t.tv_sec = mQuery->getColumn(13).getInt64();
+            t.tv_usec = mQuery->getColumn(14).getInt64();
+            rule->SetTotalTime(t);
+            rule->SetLimitRule((DB::LimitRule)mQuery->getColumn(15).getInt());
+            //rule=&r;
         }
-        DB::TimeControllerRule* p;
-        p = *(rule[2]);
-        
+        return true;
+        //rule = &a;
+    }
+    bool DBRuleService::getRule(DB::TimeControllerRule* rule,  int ruleID) {
+        const char* sql;
+        sql = SQL_GetRuleByID;
+        mQuery = &SQLite::Statement(*db, sql);
+        mQuery->bind("ruleid", ruleID);
+        //vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
+        if (mQuery->executeStep())
+        {
+            //DB::TimeControllerRule* r=new DB::TimeControllerRule; 
 
-        
-        
+            rule->SetId(mQuery->getColumn(0));
+            rule->SetRuleName(mQuery->getColumn(1));
+            rule->SetTaskName(mQuery->getColumn(2));
+            rule->SetProgramTitle(mQuery->getColumn(3));
+            rule->SetProgramDirectory(mQuery->getColumn(4));
+            rule->SetRunPath(mQuery->getColumn(5));
+            rule->SetRunningRule((DB::RunningRule)mQuery->getColumn(6).getInt());
+            struct timeval t;
+            t.tv_sec = mQuery->getColumn(7).getInt64();
+            t.tv_usec = mQuery->getColumn(8).getInt64();
+            rule->SetStartTime(t);
+            t.tv_sec = mQuery->getColumn(9).getInt64();
+            t.tv_usec = mQuery->getColumn(10).getInt64();
+            rule->SetEndTime(t);
+            rule->SetPerPeriodTime(mQuery->getColumn(11));
+            rule->SetTimes(mQuery->getColumn(12));
+            t.tv_sec = mQuery->getColumn(13).getInt64();
+            t.tv_usec = mQuery->getColumn(14).getInt64();
+            rule->SetTotalTime(t);
+            rule->SetLimitRule((DB::LimitRule)mQuery->getColumn(15).getInt());
+            //rule=&r;
+        }
+        return true;
+        //rule = &a;
+    }
+
+    bool DBRuleService::setRule(const char* ruleName, DB::TimeControllerRule* rule) {
+        const char* sql;
+        sql = SQL_SetRuleByName;
+        mQuery = &SQLite::Statement(*db, sql);
+        mQuery->bind("taskname", rule->GetTaskName());
+        mQuery->bind("programtile", rule->GetProgramTitle());
+        mQuery->bind("programdirectory", rule->GetProgramDirectory());
+        mQuery->bind("runpath", rule->GetRunPath());
+        mQuery->bind("runningrule", rule->GetRunningRule());
+        struct timeval t;
+        t = rule->GetStartTime();
+        mQuery->bind("starttimesec", t.tv_sec);
+        mQuery->bind("starttimeusec", t.tv_usec);
+        t = rule->GetEndTime();
+        mQuery->bind("endtimesec", t.tv_sec);
+        mQuery->bind("endtimeusec", t.tv_usec);
+        mQuery->bind("perperiodtime", rule->GetPerPeriodTime());
+        mQuery->bind("times", rule->GetTimes());
+        t = rule->GetTotalTime();
+        mQuery->bind("totaltimesec", t.tv_sec);
+        mQuery->bind("totaltimeusec", t.tv_usec);
+        mQuery->bind("limitrule", rule->GetLimitRule());
+
+        mQuery->bind("rulename", ruleName);
+        mQuery->exec();
+    }
+    bool DBRuleService::setRule(int ruleID, DB::TimeControllerRule* rule) {
+        const char* sql;
+        sql = SQL_SetRuleByID;
+        mQuery = &SQLite::Statement(*db, sql);
+        mQuery->bind("taskname", rule->GetTaskName());
+        mQuery->bind("programtile", rule->GetProgramTitle());
+        mQuery->bind("programdirectory", rule->GetProgramDirectory());
+        mQuery->bind("runpath", rule->GetRunPath());
+        mQuery->bind("runningrule", rule->GetRunningRule());
+        struct timeval t;
+        t = rule->GetStartTime();
+        mQuery->bind("starttimesec", t.tv_sec);
+        mQuery->bind("starttimeusec", t.tv_usec);
+        t = rule->GetEndTime();
+        mQuery->bind("endtimesec", t.tv_sec);
+        mQuery->bind("endtimeusec", t.tv_usec);
+        mQuery->bind("perperiodtime", rule->GetPerPeriodTime());
+        mQuery->bind("times", rule->GetTimes());
+        t = rule->GetTotalTime();
+        mQuery->bind("totaltimesec", t.tv_sec);
+        mQuery->bind("totaltimeusec", t.tv_usec);
+        mQuery->bind("limitrule", rule->GetLimitRule());
+        mQuery->bind("rulename", rule->GetRuleName());
+
+        mQuery->bind("ruleid", ruleID);
+        mQuery->exec();
     }
 }
