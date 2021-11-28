@@ -8,25 +8,28 @@
 namespace DB {
     using namespace std;
     const char* serviceDBPath = "test.db";
-
+    string s;
+    int rc;
     DBRuleService::~DBRuleService() {
-        if (db !=NULL)  db->~Database();
+        //if (db.getHandle()!=0)  db.~Database();
     }
-   DBRuleService::DBRuleService() {
+   DBRuleService::DBRuleService():db("") {
+       
        try {
-           db = &Database(serviceDBPath,SQLite::OPEN_READWRITE);
+           db=std::move(SQLite::Database(serviceDBPath, SQLite::OPEN_READWRITE));
        }
         catch (std::exception& e)
         {
             //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
             try {
-                db = &Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
+                db = std::move(SQLite::Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE));
             }
             catch (std::exception& e) {
                 return;
             }
         }
-        if (!db->tableExists("RULE")) {
+        
+        if (!db.tableExists("RULE")) {
             newTable();
         }
     }
@@ -34,14 +37,14 @@ namespace DB {
     bool DBRuleService::newTable() {
         const char* sql;
         s = SQL_CreateRuleTable; 
-        return db->exec(s);
+        return db.exec(s);
     }
     int DBRuleService::addRule(TimeControllerRule* rule) {
         const char* sql;
         string r;
         r = SQL_AddRule((*rule));
         sql = r.c_str();
-        rc = db->exec(sql);
+        rc = db.exec(sql);
         return rc;
     }
     bool DBRuleService::deleteRule(int ruleID) {
@@ -49,7 +52,7 @@ namespace DB {
         string r;
         r = SQL_DeleteRule(to_string(ruleID));
         sql = r.c_str();
-        rc = db->exec(sql);
+        rc = db.exec(sql);
         return rc;
     }
     bool DBRuleService::clear() {
@@ -57,13 +60,13 @@ namespace DB {
         string r;
         r = SQL_ClearRule;
         sql = r.c_str();
-        rc = db->exec(sql);
+        rc = db.exec(sql);
         return rc;
     }
     bool DBRuleService::getRule(DB::TimeControllerRule* rule, const char* ruleName) {
         const char* sql;
         sql = SQL_GetRuleByName;
-        mQuery=&SQLite::Statement(*db, sql);
+        mQuery=&SQLite::Statement(db, sql);
         mQuery->bind("rulename",ruleName);
         //vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
         if (mQuery->executeStep())
@@ -98,7 +101,7 @@ namespace DB {
     bool DBRuleService::getRule(DB::TimeControllerRule* rule,  int ruleID) {
         const char* sql;
         sql = SQL_GetRuleByID;
-        mQuery = &SQLite::Statement(*db, sql);
+        mQuery = &SQLite::Statement(db, sql);
         mQuery->bind("ruleid", ruleID);
         //vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
         if (mQuery->executeStep())
@@ -134,7 +137,7 @@ namespace DB {
     bool DBRuleService::setRule(const char* ruleName, DB::TimeControllerRule* rule) {
         const char* sql;
         sql = SQL_SetRuleByName;
-        mQuery = &SQLite::Statement(*db, sql);
+        mQuery = &SQLite::Statement(db, sql);
         mQuery->bind("taskname", rule->GetTaskName());
         mQuery->bind("programtile", rule->GetProgramTitle());
         mQuery->bind("programdirectory", rule->GetProgramDirectory());
@@ -161,7 +164,7 @@ namespace DB {
     bool DBRuleService::setRule(int ruleID, DB::TimeControllerRule* rule) {
         const char* sql;
         sql = SQL_SetRuleByID;
-        mQuery = &SQLite::Statement(*db, sql);
+        mQuery = &SQLite::Statement(db, sql);
         mQuery->bind("taskname", rule->GetTaskName());
         mQuery->bind("programtile", rule->GetProgramTitle());
         mQuery->bind("programdirectory", rule->GetProgramDirectory());

@@ -3,19 +3,18 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
-#include <SQLiteCpp/SQLiteCpp.h> 
+#include <SQLiteCpp/SQLiteCpp.h>
 #include "common.h"
 #include "RuleModel.h"
 #include <vector>
 namespace DB {
     using namespace std;
     using namespace SQLite;
-    string s;
-    int rc;
+
 
     class DBRuleService {
     private:
-        SQLite::Database* db;
+          SQLite::Database db;
           bool newTable();
           SQLite::Statement* mQuery;
     public:DBRuleService();
