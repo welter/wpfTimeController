@@ -54,6 +54,15 @@ namespace DB {
 		rc = db.exec(sql);
 		return rc;
 	}
+	bool DBRuleService::deleteRule(const char* ruleName) {
+		const char* sql;
+		string r;
+		SQLite::Database db = openTable();
+		r = SQL_DeleteRuleByName((string) ruleName);
+		sql = r.c_str();
+		rc = db.exec(sql);
+		return rc;
+	}
 	bool DBRuleService::clear() {
 		const char* sql;
 		string r;
@@ -141,26 +150,26 @@ namespace DB {
 		sql = SQL_SetRuleByName;
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
-		mQuery.bind("taskname", rule->GetTaskName());
-		mQuery.bind("programtile", rule->GetProgramTitle());
-		mQuery.bind("programdirectory", rule->GetProgramDirectory());
-		mQuery.bind("runpath", rule->GetRunPath());
-		mQuery.bind("runningrule", rule->GetRunningRule());
+		mQuery.bind(":taskname", rule->GetTaskName());
+		mQuery.bind(":programtile", rule->GetProgramTitle());
+		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
+		mQuery.bind(":runpath", rule->GetRunPath());
+		mQuery.bind(":runningrule", rule->GetRunningRule());
 		struct timeval t;
 		t = rule->GetStartTime();
-		mQuery.bind("starttimesec", t.tv_sec);
-		mQuery.bind("starttimeusec", t.tv_usec);
+		mQuery.bind(":starttimesec", t.tv_sec);
+		mQuery.bind(":starttimeusec", t.tv_usec);
 		t = rule->GetEndTime();
-		mQuery.bind("endtimesec", t.tv_sec);
-		mQuery.bind("endtimeusec", t.tv_usec);
-		mQuery.bind("perperiodtime", rule->GetPerPeriodTime());
-		mQuery.bind("times", rule->GetTimes());
+		mQuery.bind(":endtimesec", t.tv_sec);
+		mQuery.bind(":endtimeusec", t.tv_usec);
+		mQuery.bind(":perperiodtime", rule->GetPerPeriodTime());
+		mQuery.bind(":times", rule->GetTimes());
 		t = rule->GetTotalTime();
-		mQuery.bind("totaltimesec", t.tv_sec);
-		mQuery.bind("totaltimeusec", t.tv_usec);
-		mQuery.bind("limitrule", rule->GetLimitRule());
+		mQuery.bind(":totaltimesec", t.tv_sec);
+		mQuery.bind(":totaltimeusec", t.tv_usec);
+		mQuery.bind(":limitrule", rule->GetLimitRule());
 
-		mQuery.bind("rulename", ruleName);
+		mQuery.bind(":rulename", ruleName);
 		mQuery.exec();
 		return true;
 	}
@@ -169,27 +178,27 @@ namespace DB {
 		sql = SQL_SetRuleByID;
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
-		mQuery.bind("taskname", rule->GetTaskName());
-		mQuery.bind("programtile", rule->GetProgramTitle());
-		mQuery.bind("programdirectory", rule->GetProgramDirectory());
-		mQuery.bind("runpath", rule->GetRunPath());
-		mQuery.bind("runningrule", rule->GetRunningRule());
+		mQuery.bind(":taskname", rule->GetTaskName());
+		mQuery.bind(":programtile", rule->GetProgramTitle());
+		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
+		mQuery.bind(":runpath", rule->GetRunPath());
+		mQuery.bind(":runningrule", rule->GetRunningRule());
 		struct timeval t;
 		t = rule->GetStartTime();
-		mQuery.bind("starttimesec", t.tv_sec);
-		mQuery.bind("starttimeusec", t.tv_usec);
+		mQuery.bind(":starttimesec", t.tv_sec);
+		mQuery.bind(":starttimeusec", t.tv_usec);
 		t = rule->GetEndTime();
-		mQuery.bind("endtimesec", t.tv_sec);
-		mQuery.bind("endtimeusec", t.tv_usec);
-		mQuery.bind("perperiodtime", rule->GetPerPeriodTime());
-		mQuery.bind("times", rule->GetTimes());
+		mQuery.bind(":endtimesec", t.tv_sec);
+		mQuery.bind(":endtimeusec", t.tv_usec);
+		mQuery.bind(":perperiodtime", rule->GetPerPeriodTime());
+		mQuery.bind(":times", rule->GetTimes());
 		t = rule->GetTotalTime();
-		mQuery.bind("totaltimesec", t.tv_sec);
-		mQuery.bind("totaltimeusec", t.tv_usec);
-		mQuery.bind("limitrule", rule->GetLimitRule());
-		mQuery.bind("rulename", rule->GetRuleName());
+		mQuery.bind(":totaltimesec", t.tv_sec);
+		mQuery.bind(":totaltimeusec", t.tv_usec);
+		mQuery.bind(":limitrule", rule->GetLimitRule());
+		mQuery.bind(":rulename", rule->GetRuleName());
 
-		mQuery.bind("ruleid", ruleID);
+		mQuery.bind(":ruleid", ruleID);
 		mQuery.exec();
 		return true;
 	}

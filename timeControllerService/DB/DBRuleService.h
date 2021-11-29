@@ -24,6 +24,7 @@ namespace DB {
           bool setRule(const char* ruleName, DB::TimeControllerRule* rule);
           bool setRule(int ruleID, DB::TimeControllerRule* rule);
           bool deleteRule(int ruleID);
+          bool deleteRule(const char* ruleName);
           bool clear();
     };
 }
