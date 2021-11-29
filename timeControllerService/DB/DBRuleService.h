@@ -16,7 +16,7 @@ namespace DB {
     private:
           SQLite::Database db;
           bool newTable();
-          SQLite::Statement* mQuery;
+
     public:DBRuleService();
           ~DBRuleService();
           bool getRule(DB::TimeControllerRule* rule, const char* ruleName);
