@@ -68,7 +68,7 @@ namespace DB {
 		sql = SQL_GetRuleByName;
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
-		mQuery.bind("rulename", ruleName);
+		mQuery.bind(":rulename", ruleName);
 		//vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
 		if (mQuery.executeStep())
 		{

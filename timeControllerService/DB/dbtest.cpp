@@ -25,6 +25,6 @@ int APIENTRY WinMain(
 
     DBRS.addRule(rule);*/
 
-    DBRS.getRule(rule, 1);
+    DBRS.getRule(rule,"1");
     
 }
