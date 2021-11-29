@@ -10,7 +10,7 @@ int APIENTRY WinMain(
 {
     DB::DBRuleService DBRS;
     DB::TimeControllerRule* rule=new DB::TimeControllerRule();
-    rule->SetRuleName("1");
+    /*rule->SetRuleName("1");
     rule->SetTaskName("2");
     rule->SetProgramTitle("3");
     rule->SetProgramDirectory("4");
@@ -23,8 +23,8 @@ int APIENTRY WinMain(
     rule->SetLimitRule(DB::LimitRule::f);
     rule->SetTotalTime(DB::timeval{ 30,40 });
 
-    DBRS.addRule(rule);
+    DBRS.addRule(rule);*/
 
-    //DBRS.getRule(rule, 1);
+    DBRS.getRule(rule, 1);
     
 }
