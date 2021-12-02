@@ -11,7 +11,7 @@ int APIENTRY WinMain(
     DB::DBRuleService DBRS;
     DB::TimeControllerRule* rule=new DB::TimeControllerRule();
     rule->SetRuleName("2");
-    rule->SetTaskName("3");
+    rule->SetProgramName("3");
     rule->SetProgramTitle("3");
     rule->SetProgramDirectory("4");
     rule->SetRunPath("5");
