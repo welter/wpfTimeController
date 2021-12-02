@@ -151,7 +151,7 @@ namespace DB {
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
 		mQuery.bind(":taskname", rule->GetTaskName());
-		mQuery.bind(":programtile", rule->GetProgramTitle());
+		mQuery.bind(":programtitle", rule->GetProgramTitle());
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
 		mQuery.bind(":runningrule", rule->GetRunningRule());
@@ -179,7 +179,7 @@ namespace DB {
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
 		mQuery.bind(":taskname", rule->GetTaskName());
-		mQuery.bind(":programtile", rule->GetProgramTitle());
+		mQuery.bind(":programtitle", rule->GetProgramTitle());
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
 		mQuery.bind(":runningrule", rule->GetRunningRule());

@@ -26,10 +26,10 @@ RUNNINGRULE INT, STARTTIMESEC INT,STARTTIMEUSEC INT, ENDTIMESEC INT, ENDTIMEUSEC
 
 #define SQL_GetRuleByID "SELECT * FROM RULE WHERE ID=:ruleid"
 
-#define SQL_SetRuleByName "UPDATE RULE SET TASKNAME=:taskname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH:=runpath,\
+#define SQL_SetRuleByName "UPDATE RULE SET TASKNAME=:taskname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH=:runpath,\
 RUNNINGRULE=:runningrule,STARTTIMESEC=:starttimesec,STARTTIMEUSEC=:starttimeusec,ENDTIMESEC=:endtimesec,ENDTIMEUSEC=:endtimeusec,PERPERIODTIME=:perperiodtime\
 ,TIMES=:times,TOTALTIMESEC=:totaltimesec,TOTALTIMEUSEC=:totaltimeusec,LIMITRULE=:limitrule WHERE RULENAME=:rulename"
 
-#define SQL_SetRuleByID "UPDATE RULE SET RULENAME=:rulename,TASKNAME=:taskname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH:=runpath,\
+#define SQL_SetRuleByID "UPDATE RULE SET RULENAME=:rulename,TASKNAME=:taskname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH=:runpath,\
 RUNNINGRULE=:runningrule,STARTTIMESEC=:starttimesec,STARTTIMEUSEC=:starttimeusec,ENDTIMESEC=:endtimesec,ENDTIMEUSEC=:endtimeusec,PERPERIODTIME=:perperiodtime\
 ,TIMES=:times,TOTALTIMESEC=:totaltimesec,TOTALTIMEUSEC=:totaltimeusec,LIMITRULE=:limitrule WHERE ID=:ruleid"

@@ -10,21 +10,21 @@ int APIENTRY WinMain(
 {
     DB::DBRuleService DBRS;
     DB::TimeControllerRule* rule=new DB::TimeControllerRule();
-    /*rule->SetRuleName("1");
-    rule->SetTaskName("2");
+    rule->SetRuleName("2");
+    rule->SetTaskName("3");
     rule->SetProgramTitle("3");
     rule->SetProgramDirectory("4");
     rule->SetRunPath("5");
-    rule->SetStartTime(DB::timeval{  5, 10 });
-    rule->SetEndTime(DB::timeval{ 10,20 });
-    rule->SetPerPeriodTime(5);
-    rule->SetTimes(6);
-    rule->SetRunningRule(DB::RunningRule::a);
-    rule->SetLimitRule(DB::LimitRule::f);
+    rule->SetStartTime(DB::timeval{  15, 10 });
+    rule->SetEndTime(DB::timeval{ 20,20 });
+    rule->SetPerPeriodTime(15);
+    rule->SetTimes(16);
+    rule->SetRunningRule(DB::RunningRule::b);
+    rule->SetLimitRule(DB::LimitRule::g);
     rule->SetTotalTime(DB::timeval{ 30,40 });
 
-    DBRS.addRule(rule);*/
+    /*DBRS.addRule(rule); */
 
-    DBRS.getRule(rule,"1");
+    DBRS.setRule("2",rule);
     
 }
