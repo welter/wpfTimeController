@@ -8,13 +8,10 @@
 #include "RuleModel.h"
 #include <vector>
 namespace DB {
-    using namespace std;
-    using namespace SQLite;
 
 
     class DBRuleService {
     private:
-          bool newTable();
           SQLite::Database openTable();
     public:DBRuleService() =default;
           ~DBRuleService() =default;

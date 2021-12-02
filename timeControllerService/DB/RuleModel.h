@@ -10,7 +10,7 @@ namespace DB {
     private:
         int Id;
         string RuleName;
-        string TaskName;
+        string ProgramName;
         string ProgramTitle;
         string ProgramDirectory;
         string RunPath;
@@ -26,8 +26,8 @@ namespace DB {
         void SetId(int id);
         string GetRuleName();
         void SetRuleName(string ruleName);
-        string GetTaskName();
-        void SetTaskName(string taskName);
+        string GetProgramName();
+        void SetProgramName(string programName);
         string GetProgramTitle();
         void SetProgramTitle(string programTitle);
         string GetProgramDirectory();

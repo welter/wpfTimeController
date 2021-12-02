@@ -18,12 +18,12 @@ namespace DB {
         RuleName = ruleName;
     }
 
-    string TimeControllerRule::GetTaskName() {
-        return TaskName;
+    string TimeControllerRule::GetProgramName() {
+        return ProgramName;
     }
 
-    void TimeControllerRule::SetTaskName(string taskName) {
-        TaskName = taskName;
+    void TimeControllerRule::SetProgramName(string programName) {
+        ProgramName = programName;
     }
 
     string TimeControllerRule::GetProgramTitle() {

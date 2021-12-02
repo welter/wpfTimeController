@@ -12,10 +12,12 @@
 #include "tchar.h"
 #include <windows.h>
 #include<iostream>
-#include<SQLiteCpp/SQLiteCpp.h>
+#include "DB/common.h"
+#include "DB/RuleModel.h"
+#include "DB/DBRuleService.h"
 
 
-using namespace SQLite;
+using namespace DB;
 using namespace std;
 
 //SQLite::Statement   query(db, "SELECT * FROM test WHERE size > ?");
@@ -149,10 +151,10 @@ void WINAPI ServiceMain()
     SetServiceStatus(hServiceStatus, &status);
     char* s = "g:\\tmp\\test.db";
     char* s2 = "";
-
+    DB::DBRuleService ruleDB;
+    DB::TimeControllerRule* rule = new DB::TimeControllerRule();
     try {
-        SQLite::Database db(s, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE, 0);
-        db.exec("CREATE TABLE COMPANY(ID INT PRIMARY KEY NOT NULL,NAME TEXT  NOT NULL,AGE  INT NOT NULL, ADDRESS CHAR(50),SALARY  REAL); ");
+        ruleDB.getRule(rule,1);
     }
     catch (std::exception& e)
     {

@@ -85,7 +85,7 @@ namespace DB {
 
 			rule->SetId(mQuery.getColumn(0));
 			rule->SetRuleName(mQuery.getColumn(1));
-			rule->SetTaskName(mQuery.getColumn(2));
+			rule->SetProgramName(mQuery.getColumn(2));
 			rule->SetProgramTitle(mQuery.getColumn(3));
 			rule->SetProgramDirectory(mQuery.getColumn(4));
 			rule->SetRunPath(mQuery.getColumn(5));
@@ -121,7 +121,7 @@ namespace DB {
 
 			rule->SetId(mQuery.getColumn(0));
 			rule->SetRuleName(mQuery.getColumn(1));
-			rule->SetTaskName(mQuery.getColumn(2));
+			rule->SetProgramName(mQuery.getColumn(2));
 			rule->SetProgramTitle(mQuery.getColumn(3));
 			rule->SetProgramDirectory(mQuery.getColumn(4));
 			rule->SetRunPath(mQuery.getColumn(5));
@@ -150,7 +150,7 @@ namespace DB {
 		sql = SQL_SetRuleByName;
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
-		mQuery.bind(":taskname", rule->GetTaskName());
+		mQuery.bind(":programname", rule->GetProgramName());
 		mQuery.bind(":programtitle", rule->GetProgramTitle());
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
@@ -178,7 +178,7 @@ namespace DB {
 		sql = SQL_SetRuleByID;
 		SQLite::Database db = openTable();
 		SQLite::Statement mQuery(db, sql);
-		mQuery.bind(":taskname", rule->GetTaskName());
+		mQuery.bind(":programname", rule->GetProgramName());
 		mQuery.bind(":programtitle", rule->GetProgramTitle());
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
