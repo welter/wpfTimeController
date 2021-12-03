@@ -7,7 +7,7 @@
 
 namespace DB {
 	using namespace std;
-	const char* serviceDBPath = "test.db";
+	const char* serviceDBPath = "rule.db";
 	string s;
 	int rc;
 
@@ -31,6 +31,8 @@ namespace DB {
 		if (!db.tableExists("RULE")) {
 			const char* sql;
 			s = SQL_CreateRuleTable;
+			sql = s.c_str();
+			db.exec(sql);
 		}
 		return(db);
 	}
