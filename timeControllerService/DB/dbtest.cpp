@@ -2,6 +2,10 @@
 #include "DBRuleService.h"
 #include "common.h"
 #include "RuleModel.h"
+#include "../Timer/Timer.h"
+void callb() {
+    std::cout << "test ok"<<std::endl;
+    };
 int APIENTRY WinMain(
     _In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
@@ -22,9 +26,16 @@ int APIENTRY WinMain(
     rule->SetRunningRule(DB::RunningRule::b);
     rule->SetLimitRule(DB::LimitRule::g);
     rule->SetTotalTime(DB::timeval{ 30,40 });
+    WindowsTimer timer;
+    timer.setCallback(callb);
+    timer.start(1, false);
+    char* p="";
+    while (*p!=14) {
+        std::cin >> p;
 
+    };
     /*DBRS.addRule(rule); */
 
-    DBRS.setRule("2",rule);
+    //DBRS.setRule("2",rule);
     
 }

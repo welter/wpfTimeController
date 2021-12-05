@@ -35,3 +35,5 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	#USE_MSVC_PCH(timeControllerService stdafx.h ${STDAFX_PCH_C})
 endif ()
 # TODO: 如有需要，请添加测试并安装目标。
+
+add_subdirectory("Timer")
