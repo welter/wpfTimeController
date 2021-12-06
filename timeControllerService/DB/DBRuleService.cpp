@@ -91,7 +91,7 @@ namespace DB {
 			rule->SetProgramTitle(mQuery.getColumn(3));
 			rule->SetProgramDirectory(mQuery.getColumn(4));
 			rule->SetRunPath(mQuery.getColumn(5));
-			rule->SetRunningRule((DB::RunningRule)mQuery.getColumn(6).getInt());
+			rule->SetRunMode(mQuery.getColumn(6).getInt());
 			struct timeval t;
 			t.tv_sec = mQuery.getColumn(7).getInt64();
 			t.tv_usec = mQuery.getColumn(8).getInt64();
@@ -127,7 +127,7 @@ namespace DB {
 			rule->SetProgramTitle(mQuery.getColumn(3));
 			rule->SetProgramDirectory(mQuery.getColumn(4));
 			rule->SetRunPath(mQuery.getColumn(5));
-			rule->SetRunningRule((DB::RunningRule)mQuery.getColumn(6).getInt());
+			rule->SetRunMode(mQuery.getColumn(6).getInt());
 			struct timeval t;
 			t.tv_sec = mQuery.getColumn(7).getInt64();
 			t.tv_usec = mQuery.getColumn(8).getInt64();
@@ -156,7 +156,7 @@ namespace DB {
 		mQuery.bind(":programtitle", rule->GetProgramTitle());
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
-		mQuery.bind(":runningrule", rule->GetRunningRule());
+		mQuery.bind(":runmode", rule->GetRunMode());
 		struct timeval t;
 		t = rule->GetStartTime();
 		mQuery.bind(":starttimesec", t.tv_sec);
@@ -184,7 +184,7 @@ namespace DB {
 		mQuery.bind(":programtitle", rule->GetProgramTitle());
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
-		mQuery.bind(":runningrule", rule->GetRunningRule());
+		mQuery.bind(":runmode", rule->GetRunMode());
 		struct timeval t;
 		t = rule->GetStartTime();
 		mQuery.bind(":starttimesec", t.tv_sec);

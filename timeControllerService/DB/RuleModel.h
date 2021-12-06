@@ -14,7 +14,7 @@ namespace DB {
         string ProgramTitle;
         string ProgramDirectory;
         string RunPath;
-        RunningRule RunningRule;
+        unsigned char RunMode;
         timeval StartTime;
         timeval EndTime;
         int PerPeriodTime;
@@ -34,8 +34,8 @@ namespace DB {
         void SetProgramDirectory(string programDirectory);
         string GetRunPath();
         void SetRunPath(string runPath);
-        DB::RunningRule GetRunningRule();
-        void SetRunningRule(DB::RunningRule runningRule);
+        unsigned char GetRunMode();
+        void SetRunMode(unsigned char runMode);
         timeval GetStartTime();
         void SetStartTime(timeval startTime);
         timeval GetEndTime();

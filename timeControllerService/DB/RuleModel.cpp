@@ -50,12 +50,12 @@ namespace DB {
         RunPath = runPath;
     }
 
-    DB::RunningRule TimeControllerRule::GetRunningRule() {
-        return RunningRule;
+    unsigned char TimeControllerRule::GetRunMode() {
+        return RunMode;
     }
 
-    void TimeControllerRule::SetRunningRule(DB::RunningRule runningRule) {
-        RunningRule = runningRule;
+    void TimeControllerRule::SetRunMode(unsigned char runMode) {
+        RunMode = runMode;
     }
 
     timeval TimeControllerRule::GetStartTime() {
