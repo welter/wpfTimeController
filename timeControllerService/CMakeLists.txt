@@ -30,7 +30,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	
 	add_subdirectory("DB")
 	find_package(SQLiteCpp CONFIG REQUIRED)
-	target_link_libraries(timeControllerService PRIVATE SQLiteCpp)
+	target_link_libraries(timeControllerService PRIVATE SQLiteCpp DB Timer)
 # 此处是关键，添加我们在msvcpch.cmake定义的宏
 	#USE_MSVC_PCH(timeControllerService stdafx.h ${STDAFX_PCH_C})
 endif ()
