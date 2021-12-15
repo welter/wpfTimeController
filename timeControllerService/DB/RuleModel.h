@@ -15,11 +15,11 @@ namespace DB {
         string ProgramDirectory;
         string RunPath;
         unsigned char RunMode;
-        timeval StartTime;
-        timeval EndTime;
+        time_t StartTime;
+        time_t EndTime;
         int PerPeriodTime;
         int Times;
-        timeval TotalTime;
+        time_t TotalTime;
         LimitRule LimitRule;
     public:
         int GetId();
@@ -36,16 +36,16 @@ namespace DB {
         void SetRunPath(string runPath);
         unsigned char GetRunMode();
         void SetRunMode(unsigned char runMode);
-        timeval GetStartTime();
-        void SetStartTime(timeval startTime);
-        timeval GetEndTime();
-        void SetEndTime(timeval endTime);
+        time_t GetStartTime();
+        void SetStartTime(time_t startTime);
+        time_t GetEndTime();
+        void SetEndTime(time_t endTime);
         int GetPerPeriodTime();
         void SetPerPeriodTime(int perPeriodTime);
         int GetTimes();
         void SetTimes(int times);
-        timeval GetTotalTime();
-        void SetTotalTime(timeval totalTime);
+        time_t GetTotalTime();
+        void SetTotalTime(time_t totalTime);
         DB::LimitRule GetLimitRule();
         void SetLimitRule(DB::LimitRule limitRule);
     };

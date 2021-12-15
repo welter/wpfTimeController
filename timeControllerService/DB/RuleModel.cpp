@@ -58,19 +58,19 @@ namespace DB {
         RunMode = runMode;
     }
 
-    timeval TimeControllerRule::GetStartTime() {
+    time_t TimeControllerRule::GetStartTime() {
         return StartTime;
     }
 
-    void TimeControllerRule::SetStartTime(timeval startTime) {
+    void TimeControllerRule::SetStartTime(time_t startTime) {
         StartTime = startTime;
     }
 
-    timeval TimeControllerRule::GetEndTime() {
+    time_t TimeControllerRule::GetEndTime() {
         return EndTime;
     }
 
-    void TimeControllerRule::SetEndTime(timeval endTime) {
+    void TimeControllerRule::SetEndTime(time_t endTime) {
         EndTime = endTime;
     }
 
@@ -90,11 +90,11 @@ namespace DB {
         Times = times;
     }
 
-    timeval TimeControllerRule::GetTotalTime() {
+    time_t TimeControllerRule::GetTotalTime() {
         return TotalTime;
     }
 
-    void TimeControllerRule::SetTotalTime(timeval totalTime) {
+    void TimeControllerRule::SetTotalTime(time_t totalTime) {
         TotalTime = totalTime;
     }
 
