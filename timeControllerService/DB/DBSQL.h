@@ -33,3 +33,5 @@ RUNMODE=:runmode,STARTTIME=:starttime,ENDTIME=:endtime,PERPERIODTIME=:perperiodt
 #define SQL_SetRuleByID "UPDATE RULE SET RULENAME=:rulename,PROGRAMNAME=:programname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH=:runpath,\
 RUNMODE=:runmode,STARTTIME=:starttime,ENDTIME=:endtime,PERPERIODTIME=:perperiodtime\
 ,TIMES=:times,TOTALTIME=:totaltime,LIMITRULE=:limitrule WHERE ID=:ruleid"
+
+#define SQL_GetRuleCount "SELECT COUNT(*)  FROM RULE"

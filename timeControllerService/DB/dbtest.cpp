@@ -15,6 +15,7 @@ using namespace std;
 const char* logFilePath = "test.log";
 const int moniteInterval = 1000;
 const int eachRunInterval = 600000;
+const int ruleTypeCount = 6;
 struct processesInfo {
     DWORD   size;
     DWORD   usage;
@@ -32,7 +33,8 @@ struct processesInfo {
     int runTimes;
     time_t timeAfterPrevRun;
 };
-static processesInfo *moniteProcesses[1];
+static processesInfo* *moniteProcesses=new processesInfo*[10];
+static int** processesByRule = new int* [ruleTypeCount-1];
 static int maxMoniteProc=1;
 int findMoniteProc(string procName) {
     for (int i = 0; i < maxMoniteProc; i++) {
@@ -100,6 +102,7 @@ int main(void)
     printf("hello00");
     DB::DBRuleService DBRS;
     DB::TimeControllerRule* rule = new DB::TimeControllerRule();
+    DBRS.getRule(rule, 1);
     rule->SetRuleName("2");
     rule->SetProgramName("3");
     rule->SetProgramTitle("3");
@@ -113,8 +116,16 @@ int main(void)
     rule->SetLimitRule(DB::LimitRule::g);
     rule->SetTotalTime(30);
     std::cout << "hello1" << std::endl;
+    maxMoniteProc = DBRS.getRuleCount();
+    moniteProcesses = new  processesInfo* [maxMoniteProc];   
     moniteProcesses[0] = new processesInfo;
     moniteProcesses[0]->processName = "notepad.exe";
+    for (int i = 0; i < ruleTypeCount; i++) {
+        processesByRule[i] = new int[maxMoniteProc - 1];
+        for (int j = 0; j < maxMoniteProc; j++) {
+            processesByRule[i][j] = 1;
+        }
+    }
     WindowsTimer timer;
     timer.setCallback(callb);
     timer.start(5000, true);

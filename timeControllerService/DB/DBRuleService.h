@@ -23,5 +23,6 @@ namespace DB {
           bool deleteRule(int ruleID);
           bool deleteRule(const char* ruleName);
           bool clear();
+          int getRuleCount();
     };
 }

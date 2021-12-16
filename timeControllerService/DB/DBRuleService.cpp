@@ -60,7 +60,7 @@ namespace DB {
 		const char* sql;
 		string r;
 		SQLite::Database db = openTable();
-		r = SQL_DeleteRuleByName((string) ruleName);
+		r = SQL_DeleteRuleByName((string)ruleName);
 		sql = r.c_str();
 		rc = db.exec(sql);
 		return rc;
@@ -203,6 +203,18 @@ namespace DB {
 		mQuery.bind(":ruleid", ruleID);
 		mQuery.exec();
 		return true;
+	}
+
+	int DBRuleService::getRuleCount() {
+		const char* sql;
+		sql = SQL_GetRuleCount;
+		SQLite::Database db = openTable();
+		SQLite::Statement mQuery(db, sql);
+		if (mQuery.executeStep())
+			return mQuery.getColumn(0);
+		else 
+			return -1;
+
 	}
 
 }
