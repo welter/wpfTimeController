@@ -35,3 +35,5 @@ RUNMODE=:runmode,STARTTIME=:starttime,ENDTIME=:endtime,PERPERIODTIME=:perperiodt
 ,TIMES=:times,TOTALTIME=:totaltime,LIMITRULE=:limitrule WHERE ID=:ruleid"
 
 #define SQL_GetRuleCount "SELECT COUNT(*)  FROM RULE"
+
+#define SQL_GetAllRule "SELECT * FROM RULE"

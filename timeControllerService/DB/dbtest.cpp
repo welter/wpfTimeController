@@ -117,12 +117,16 @@ int main(void)
     rule->SetTotalTime(30);
     std::cout << "hello1" << std::endl;
     maxMoniteProc = DBRS.getRuleCount();
+    DB::TimeControllerRule*** rules;
+    DBRS.getAllRule(rules, maxMoniteProc);
     moniteProcesses = new  processesInfo* [maxMoniteProc];   
-    moniteProcesses[0] = new processesInfo;
-    moniteProcesses[0]->processName = "notepad.exe";
-    for (int i = 0; i < ruleTypeCount; i++) {
+        for (int i = 0; i < ruleTypeCount; i++) {
         processesByRule[i] = new int[maxMoniteProc - 1];
         for (int j = 0; j < maxMoniteProc; j++) {
+            if (i == 0) {
+                moniteProcesses[j] = new processesInfo;
+                moniteProcesses[j]->processName = "notepad.exe";
+            }
             processesByRule[i][j] = 1;
         }
     }

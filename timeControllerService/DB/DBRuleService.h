@@ -24,5 +24,6 @@ namespace DB {
           bool deleteRule(const char* ruleName);
           bool clear();
           int getRuleCount();
+          bool getAllRule(DB::TimeControllerRule*** rules,int& ruleCount);
     };
 }

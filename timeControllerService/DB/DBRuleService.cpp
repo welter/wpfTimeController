@@ -217,4 +217,44 @@ namespace DB {
 
 	}
 
+	bool DBRuleService::getAllRule(DB::TimeControllerRule*** rules,int& ruleCount) {
+		const char* sql;
+		sql = SQL_GetAllRule;
+		SQLite::Database db = openTable();
+		SQLite::Statement mQuery(db, sql);
+		ruleCount=db.execAndGet(SQL_GetRuleCount);
+		int count=0;
+		rules = new DB::TimeControllerRule ** [ruleCount];
+		//vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
+		while (mQuery.executeStep()&& count<ruleCount)
+		{
+			//DB::TimeControllerRule* r=new DB::TimeControllerRule; 
+
+			(*rules)[count] = new DB::TimeControllerRule;
+			(*rules)[count]->SetId(mQuery.getColumn(0));
+			(*rules)[count]->SetRuleName(mQuery.getColumn(1));
+			(*rules)[count]->SetProgramName(mQuery.getColumn(2));
+			(*rules)[count]->SetProgramTitle(mQuery.getColumn(3));
+			(*rules)[count]->SetProgramDirectory(mQuery.getColumn(4));
+			(*rules)[count]->SetRunPath(mQuery.getColumn(5));
+			(*rules)[count]->SetRunMode(mQuery.getColumn(6).getInt());
+			//struct timeval t;
+			//t.tv_sec = mQuery.getColumn(7).getInt64();
+			//t.tv_usec = mQuery.getColumn(8).getInt64();
+			(*rules)[count]->SetStartTime(mQuery.getColumn(7).getInt64());
+			//t.tv_sec = mQuery.getColumn(9).getInt64();
+			//t.tv_usec = mQuery.getColumn(10).getInt64();
+			(*rules)[count]->SetEndTime(mQuery.getColumn(8).getInt64());
+			(*rules)[count]->SetPerPeriodTime(mQuery.getColumn(9));
+			(*rules)[count]->SetTimes(mQuery.getColumn(10));
+			//t.tv_sec = mQuery.getColumn(13).getInt64();
+			//t.tv_usec = mQuery.getColumn(14).getInt64();
+			(*rules)[count]->SetTotalTime(mQuery.getColumn(11).getInt64());
+			(*rules)[count]->SetLimitRule((DB::LimitRule)mQuery.getColumn(12).getInt());
+			//rule=&r;
+			count++;
+		}
+		return (ruleCount>count);
+		//rule = &a;
+	}
 }
