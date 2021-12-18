@@ -17,6 +17,8 @@ const int moniteInterval = 1000;
 const int eachRunInterval = 600000;
 const int runModeCount = 6;
 struct processInfo {
+	//唯一主ID
+	DWORD   id;
 	//从系统实时获取
 	DWORD   size;
 	DWORD   usage;
@@ -28,6 +30,7 @@ struct processInfo {
 	LONG    priClassBase;         // Base priority of process's threads
 	DWORD   flags;
 	//从规则库中获取
+	int dbID;  //数据库ID
 	int runMode;
 	int times;
 	string ProgramTitle;
@@ -44,6 +47,7 @@ struct processInfo {
 	time_t duration;
 	time_t timeAfterPrevRun;
 	int runTimes;
+	bool isRunnig;
 };
 struct processes {
 	struct processInfo* ProcessInfo;
@@ -69,13 +73,20 @@ void callb() {
 
 	ofstream logFile(logFilePath, ios::app | ios::_Noreplace);
 	bool logFileOpen = logFile.is_open();
+
+	//将监控程序默认为未运行
+	struct processes* pointer = moniteProcesses;
+	while (pointer) {
+		(*pointer).ProcessInfo->isRunnig = false;
+		pointer = (*pointer).next;
+	}
+	time_t now = time(0);
+	char* dt = ctime(&now);
 	PROCESSENTRY32 pe32;
 	// 在使用这个结构之前，先设置它的大小
 	pe32.dwSize = sizeof(pe32);
-	// 给系统内的所有进程拍一个快照
-	time_t now = time(0);
-	char* dt = ctime(&now);
 	if (logFileOpen) logFile << "记录时间：" << dt << endl;
+	// 给系统内的所有进程拍一个快照
 	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hProcessSnap == INVALID_HANDLE_VALUE)
 	{
@@ -105,14 +116,53 @@ void callb() {
 			process->threads = pe32.cntThreads;
 			process->usage = pe32.cntUsage;
 			process->timeAfterPrevRun += moniteInterval;
+			process->isRunnig = true;
 		}
 		wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
-
+		
 		printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
 
 		bMore = ::Process32Next(hProcessSnap, &pe32);
 	}
-
+	static struct processesByRuleList* scanPtr;	
+	processInfo* pInfo;
+	bool isKeepRunning[] = { new bool[maxMoniteProc] };
+	scanPtr = processesByRule[0];
+	while (scanPtr)
+	{
+		pInfo = (*scanPtr).ProcessInfo;
+		if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) isKeepRunning[pInfo->id] &= false;
+	}
+	scanPtr = processesByRule[1];
+	while (scanPtr)
+	{
+		pInfo = (*scanPtr).ProcessInfo;
+		if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) isKeepRunning[pInfo->id] &= false;
+	}
+	scanPtr = processesByRule[2];
+	while (scanPtr)
+	{
+		pInfo = (*scanPtr).ProcessInfo;
+		if (pInfo->isRunnig && now-pInfo->lastRunTime > pInfo->PerPeriodTime) isKeepRunning[pInfo->id] &= false;
+	}
+	scanPtr = processesByRule[3];
+	while (scanPtr)
+	{
+		pInfo = (*scanPtr).ProcessInfo;
+		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) isKeepRunning[pInfo->id] &= false;
+	}
+	scanPtr = processesByRule[4];
+	while (scanPtr)
+	{
+		pInfo = (*scanPtr).ProcessInfo;
+		if (pInfo->isRunnig && now>pInfo->startTime && now <pInfo->endTime  ) isKeepRunning[pInfo->id] &= false;
+	}
+	scanPtr = processesByRule[5];
+	while (scanPtr)
+	{
+		pInfo = (*scanPtr).ProcessInfo;
+		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) isKeepRunning[pInfo->id] &= false;
+	}
 	// 释放snapshot对象
 	::CloseHandle(hProcessSnap);
 	std::cout << "test ok" << std::endl;
@@ -155,8 +205,10 @@ int main(void)
 		(*tempProcessNode).ProcessInfo = new processInfo;
 		(*tempProcessNode).next = nullptr;
 		if (ptrNodeProcess) (*ptrNodeProcess)= tempProcessNode;
-
+		//生成主ID;
+		(**ptrNodeProcess).ProcessInfo->id = i;
 		//获取规则库中需监视进程相关信息
+		(**ptrNodeProcess).ProcessInfo->dbID = (*rules)[i]->GetId();
 		(**ptrNodeProcess).ProcessInfo->processName = (*rules)[i]->GetProgramName();
 		(**ptrNodeProcess).ProcessInfo->endTime = (*rules)[i]->GetEndTime();
 		(**ptrNodeProcess).ProcessInfo->times = (*rules)[i]->GetTimes();
