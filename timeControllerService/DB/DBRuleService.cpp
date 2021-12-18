@@ -224,7 +224,7 @@ namespace DB {
 		SQLite::Statement mQuery(db, sql);
 		ruleCount=db.execAndGet(SQL_GetRuleCount);
 		int count=0;
-		rules = new DB::TimeControllerRule ** [ruleCount];
+		*rules = new DB::TimeControllerRule* [ruleCount];
 		//vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
 		while (mQuery.executeStep()&& count<ruleCount)
 		{
