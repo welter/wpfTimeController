@@ -21,6 +21,7 @@ namespace DB {
         int Times;
         time_t TotalTime;
         LimitRule LimitRule;
+        time_t Interval;
     public:
         int GetId();
         void SetId(int id);
@@ -48,5 +49,7 @@ namespace DB {
         void SetTotalTime(time_t totalTime);
         DB::LimitRule GetLimitRule();
         void SetLimitRule(DB::LimitRule limitRule);
+        time_t GetInterval();
+        void SetInterval(time_t interval);
     };
 }

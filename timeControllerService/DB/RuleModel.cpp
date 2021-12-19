@@ -105,4 +105,12 @@ namespace DB {
     void TimeControllerRule::SetLimitRule(DB::LimitRule limitRule) {
         LimitRule = limitRule;
     }
+
+    time_t TimeControllerRule::GetInterval() {
+        return Interval;
+    }
+
+    void TimeControllerRule::SetTotalTime(time_t interval) {
+        Interval = interval;
+    }
 }

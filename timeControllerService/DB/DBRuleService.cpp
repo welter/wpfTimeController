@@ -106,6 +106,7 @@ namespace DB {
 			rule->SetTotalTime(mQuery.getColumn(11).getInt64());
 			rule->SetLimitRule((DB::LimitRule)mQuery.getColumn(12).getInt());
 			//rule=&r;
+			rule->SetInterval(mQuery.getColumn(13).getInt64());
 		}
 		return true;
 		//rule = &a;
@@ -142,6 +143,7 @@ namespace DB {
 			rule->SetTotalTime(mQuery.getColumn(11).getInt64());
 			rule->SetLimitRule((DB::LimitRule)mQuery.getColumn(12).getInt());
 			//rule=&r;
+			rule->SetInterval(mQuery.getColumn(13).getInt64());
 		}
 		return true;
 		//rule = &a;
@@ -170,7 +172,7 @@ namespace DB {
 		mQuery.bind(":totaltime", rule->GetTotalTime());
 		//mQuery.bind(":totaltimeusec", t.tv_usec);
 		mQuery.bind(":limitrule", rule->GetLimitRule());
-
+		mQuery.bind(":interval", rule->GetInterval());
 		mQuery.bind(":rulename", ruleName);
 		mQuery.exec();
 		return true;
@@ -199,7 +201,7 @@ namespace DB {
 		//mQuery.bind(":totaltimeusec", t.tv_usec);
 		mQuery.bind(":limitrule", rule->GetLimitRule());
 		mQuery.bind(":rulename", rule->GetRuleName());
-
+		mQuery.bind(":interval", rule->GetInterval());
 		mQuery.bind(":ruleid", ruleID);
 		mQuery.exec();
 		return true;
@@ -251,6 +253,7 @@ namespace DB {
 			//t.tv_usec = mQuery.getColumn(14).getInt64();
 			(*rules)[count]->SetTotalTime(mQuery.getColumn(11).getInt64());
 			(*rules)[count]->SetLimitRule((DB::LimitRule)mQuery.getColumn(12).getInt());
+			(*rules)[count]->SetInterval(mQuery.getColumn(13).getInt64());
 			//rule=&r;
 			count++;
 		}

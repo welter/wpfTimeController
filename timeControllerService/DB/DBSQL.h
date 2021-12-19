@@ -3,7 +3,7 @@
 
 #define SQL_CreateRuleTable "CREATE TABLE RULE ( ID INTEGER PRIMARY KEY autoincrement,RULENAME TEXT, PROGRAMNAME TEXT, PROGRAMTITLE TEXT, PROGRAMDIRECTORY TEXT, RUNPATH TEXT, \
 RUNMODE INT, STARTTIME INTEGER, ENDTIME INTEGER,  PERPERIODTIME INT, TIMES INT, TOTALTIME INTEGER\
-, LIMITRULE INT);"
+, LIMITRULE INT, INTERVAL INTEGER);"
 
 #define SQL_DeleteRule(RULEID) "DELETE FROM RULE WHERE RULEID='"+RULEID+"'"
 
@@ -13,7 +13,7 @@ RUNMODE INT, STARTTIME INTEGER, ENDTIME INTEGER,  PERPERIODTIME INT, TIMES INT, 
 +RULE.GetRuleName()+"','"+RULE.GetProgramName()+"','"+RULE.GetProgramTitle()+"','"+RULE.GetProgramDirectory()\
 +"','"+RULE.GetRunPath()+"','"+to_string(RULE.GetRunMode())+"','"+to_string(RULE.GetStartTime())+"','"\
 +to_string(RULE.GetEndTime())+"','"+to_string(RULE.GetPerPeriodTime())+"','"\
-+to_string(RULE.GetTimes())+"','"+to_string(RULE.GetTotalTime())+"','"+to_string(static_cast<int>(RULE.GetLimitRule()))+"')"
++to_string(RULE.GetTimes())+"','"+to_string(RULE.GetTotalTime())+"','"+to_string(static_cast<int>(RULE.GetLimitRule()))+to_string(RULE.GetInterval())+"')"
 
 #define tempSQL "INSERT INTO RULE VALUES('NULL,RULENAME='"+RULE.GetRuleName()+"',PROGRAMNAME='"+RULE.GetProgramName()+"',PROGRAMTILE='"+RULE.GetProgramTitle()+"',PROGRAMDIRECTORY='"+RULE.GetProgramDirectory()\
 +"',RUNPATH='"+RULE.GetRunPath()+"',RUNMode='"+to_string(RULE.GetRunMode())+"',STARTTIMESEC='"+to_string(RULE.GetStartTime().tv_sec)+"',STARTTIMEUSEC='"+to_string(RULE.GetStartTime().tv_usec)+"',ENDTIMESEC='"\
@@ -28,11 +28,11 @@ RUNMODE INT, STARTTIME INTEGER, ENDTIME INTEGER,  PERPERIODTIME INT, TIMES INT, 
 
 #define SQL_SetRuleByName "UPDATE RULE SET PROGRAMNAME=:programname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH=:runpath,\
 RUNMODE=:runmode,STARTTIME=:starttime,ENDTIME=:endtime,PERPERIODTIME=:perperiodtime\
-,TIMES=:times,TOTALTIME=:totaltime,LIMITRULE=:limitrule WHERE RULENAME=:rulename"
+,TIMES=:times,TOTALTIME=:totaltime,LIMITRULE=:limitrule,INTERVAL=:interval WHERE RULENAME=:rulename"
 
 #define SQL_SetRuleByID "UPDATE RULE SET RULENAME=:rulename,PROGRAMNAME=:programname,PROGRAMTITLE=:programtitle,PROGRAMDIRECTORY=:programdirectory,RUNPATH=:runpath,\
 RUNMODE=:runmode,STARTTIME=:starttime,ENDTIME=:endtime,PERPERIODTIME=:perperiodtime\
-,TIMES=:times,TOTALTIME=:totaltime,LIMITRULE=:limitrule WHERE ID=:ruleid"
+,TIMES=:times,TOTALTIME=:totaltime,LIMITRULE=:limitrule,INTERVAL=:interval WHERE ID=:ruleid"
 
 #define SQL_GetRuleCount "SELECT COUNT(*)  FROM RULE"
 
