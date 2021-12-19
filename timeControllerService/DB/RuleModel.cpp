@@ -110,7 +110,7 @@ namespace DB {
         return Interval;
     }
 
-    void TimeControllerRule::SetTotalTime(time_t interval) {
+    void TimeControllerRule::SetInterval(time_t interval) {
         Interval = interval;
     }
 }

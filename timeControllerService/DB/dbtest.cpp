@@ -13,11 +13,11 @@ using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 
 const char* logFilePath = "test.log";
-const int moniteInterval = 1000;
-const int eachRunInterval = 600000;
+const int moniteInterval = 5000;
+const int eachRunInterval = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
 struct processInfo {
-	
+
 	DWORD   id;//唯一主ID
 	//从系统实时获取
 	DWORD   size;
@@ -46,7 +46,8 @@ struct processInfo {
 	//根据系统信息运算获取
 	time_t lastRunTime;
 	time_t duration;
-	time_t timeAfterPrevRun;
+	time_t curDuration;
+	//time_t timeAfterPrevRun;
 	int runTimes;
 	bool isRunnig;
 	bool isTerminate;
@@ -67,8 +68,30 @@ struct processInfo* findMoniteProc(string procName) {
 	while ((*pointer).ProcessInfo->processName != procName && (*pointer).next) {
 		pointer = (*pointer).next;
 	}
-	if (pointer) return (*pointer).ProcessInfo;
+	if ((*pointer).next) return (*pointer).ProcessInfo;
 	else return nullptr;
+}
+
+
+BOOL EnableDebugPrivilege()
+
+{
+	HANDLE hToken;
+	BOOL fOk = FALSE;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
+	{
+		TOKEN_PRIVILEGES tp;
+		tp.PrivilegeCount = 1;
+		LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &tp.Privileges[0].Luid);
+		tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+		AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL);
+		int a = GetLastError();
+		cout << "return code:" << a << endl;
+		fOk = (a == ERROR_SUCCESS);
+		CloseHandle(hToken);
+	}
+	return fOk;
 }
 
 void callb() {
@@ -110,29 +133,34 @@ void callb() {
 			//更新被监控进程实时信息
 			process->defaultHeapID = pe32.th32DefaultHeapID;
 			process->flags = pe32.dwFlags;
-			if (now - process->lastRunTime > eachRunInterval) process->runTimes += 1;
+			if (now - process->lastRunTime > eachRunInterval)
+			{
+				process->runTimes += 1;
+				process->curDuration = 0;
+			}
 			process->lastRunTime = now;
 			process->moduleID = pe32.th32ModuleID;
 			process->parentProcessID = pe32.th32ParentProcessID;
 			process->priClassBase = pe32.pcPriClassBase;
 			process->processID = pe32.th32ProcessID;
-			process->duration += moniteInterval;
+			process->duration += moniteInterval / 1000;
+			process->curDuration += moniteInterval / 1000;
 			process->size = pe32.dwSize;
 			process->threads = pe32.cntThreads;
 			process->usage = pe32.cntUsage;
-			process->timeAfterPrevRun += moniteInterval;
+			//process->timeAfterPrevRun += moniteInterval/1000;
 			process->isRunnig = true;
 		}
-		wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
-		
-		printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
+		//wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
+
+		//printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
 
 		bMore = ::Process32Next(hProcessSnap, &pe32);
 	}
 	// 释放snapshot对象
 	::CloseHandle(hProcessSnap);
-	
-	static struct processesByRuleList* scanPtr;	
+
+	static struct processesByRuleList* scanPtr;
 	processInfo* pInfo;
 	//判断是否在指定的时间段运行
 	scanPtr = processesByRule[0];
@@ -140,6 +168,7 @@ void callb() {
 	{
 		pInfo = (*scanPtr).ProcessInfo;
 		if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->isTerminate |= true;
+		scanPtr = (*scanPtr).next;
 	}
 	//判断是否超过每天运行的次数
 	scanPtr = processesByRule[1];
@@ -147,27 +176,31 @@ void callb() {
 	{
 		pInfo = (*scanPtr).ProcessInfo;
 		if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->isTerminate |= true;
+		scanPtr = (*scanPtr).next;
 	}
 	//判断每两次运行间隔是否超过规定时间
 	scanPtr = processesByRule[2];
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now-pInfo->lastRunTime > pInfo->Interval) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->isTerminate |= true;
+		scanPtr = (*scanPtr).next;
 	}
 	//判断每次运行持续是否超过规定时间
 	scanPtr = processesByRule[3];
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now - pInfo->lastRunTime < pInfo->PerPeriodTime) pInfo->isTerminate |= true;
+		if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->isTerminate |= true;
+		scanPtr = (*scanPtr).next;
 	}
 	//判断是否在禁止的时间段运行
 	scanPtr = processesByRule[4];
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now>pInfo->startTime && now <pInfo->endTime  ) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->isTerminate |= true;
+		scanPtr = (*scanPtr).next;
 	}
 	//判断每天总共运行时长是否超过规定时间
 	scanPtr = processesByRule[5];
@@ -175,21 +208,28 @@ void callb() {
 	{
 		pInfo = (*scanPtr).ProcessInfo;
 		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->isTerminate |= true;
+		scanPtr = (*scanPtr).next;
 	}
 	//停止触及规定的进程
-	struct processes* pointer = moniteProcesses;
-	while (pointer) {
-		if ((*pointer).ProcessInfo->isTerminate)
-		{
-			HANDLE handle = OpenProcess(PROCESS_TERMINATE, FALSE,(*pointer).ProcessInfo->processID);
-			if (handle != NULL)
+	pointer = moniteProcesses;
+	HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
+	THREADENTRY32   te32;
+	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnap != INVALID_HANDLE_VALUE)
+		while (pointer) {
+			if ((*pointer).ProcessInfo->isTerminate)
 			{
-				BOOL bResult = TerminateProcess(handle, 0);
-				CloseHandle(handle);
+				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, (*pointer).ProcessInfo->processID);
+				if (handle != NULL)
+				{
+					//EnableDebugPrivilege();
+					BOOL bResult = TerminateProcess(handle, 0);
+					cout << "Terminate result:" << bResult << endl;
+					CloseHandle(handle);
+				}
 			}
+			pointer = (*pointer).next;
 		}
-		pointer = (*pointer).next;
-	}
 
 	std::cout << "test ok" << std::endl;
 	if (logFileOpen) logFile.close();
@@ -222,15 +262,15 @@ int main(void)
 	//int modeCount[runModeCount];
 	//processes* prevNodeProcess = nullptr;
 	//processesByRuleList* prevNodeByRule[runModeCount] = { nullptr };
-	processesByRuleList** ptrNodeByRule[runModeCount] ;
+	processesByRuleList** ptrNodeByRule[runModeCount];
 	for (int i = 0; i < runModeCount; i++)
-		ptrNodeByRule[i] = &processesByRule[i] ;
+		ptrNodeByRule[i] = &processesByRule[i];
 	processes** ptrNodeProcess = &moniteProcesses;
 	for (int i = 0; i < maxMoniteProc; i++) {
 		processes* tempProcessNode = new processes;
 		(*tempProcessNode).ProcessInfo = new processInfo;
 		(*tempProcessNode).next = nullptr;
-		if (ptrNodeProcess) (*ptrNodeProcess)= tempProcessNode;
+		if (ptrNodeProcess) (*ptrNodeProcess) = tempProcessNode;
 		//生成主ID;
 		(**ptrNodeProcess).ProcessInfo->id = i;
 		//获取需监视进程规则库中的信息
@@ -246,14 +286,19 @@ int main(void)
 		(**ptrNodeProcess).ProcessInfo->runMode = (*rules)[i]->GetRunMode();
 		(**ptrNodeProcess).ProcessInfo->TotalTime = (*rules)[i]->GetTotalTime();
 		(**ptrNodeProcess).ProcessInfo->startTime = (*rules)[i]->GetStartTime();
-
+		//初始化被监视进程信息
+		(**ptrNodeProcess).ProcessInfo->runTimes = 0;
+		//(**ptrNodeProcess).ProcessInfo->timeAfterPrevRun = 0;
+		(**ptrNodeProcess).ProcessInfo->lastRunTime = -1;
+		(**ptrNodeProcess).ProcessInfo->duration = 0;
+		(**ptrNodeProcess).ProcessInfo->curDuration = 0;
 
 		for (int j = 0; j < runModeCount; j++) {
 			//prevNodeByRule = nullptr;
 			//curNodeByRule = processesByRule[j]=new struct processesByRuleList;
 			processesByRuleList* tempNodeByRule = new struct processesByRuleList;
 			(*tempNodeByRule).next = nullptr;
-            //添加进程指针到对应运行模式的监视列表中，模式通过runMode二进制位设置定义，详见common.h文件
+			//添加进程指针到对应运行模式的监视列表中，模式通过runMode二进制位设置定义，详见common.h文件
 			if ((**ptrNodeProcess).ProcessInfo->runMode & (0x1 << j))
 			{
 				(*tempNodeByRule).ProcessInfo = (**ptrNodeProcess).ProcessInfo;
@@ -281,7 +326,7 @@ int main(void)
 	delete rules;
 	WindowsTimer timer;
 	timer.setCallback(callb);
-	timer.start(5000, true);
+	timer.start(moniteInterval, true);
 	OutputDebugString("hello");
 	while (true)
 	{
