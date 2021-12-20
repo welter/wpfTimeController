@@ -16,13 +16,19 @@ const char* logFilePath = "test.log";
 const int moniteInterval = 5000;
 const int eachRunInterval = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
+//同名进程集结构
+struct processesID {
+	DWORD processID; //进程id
+	string processName; //进程名称
+	processesID* next;
+};
 struct processInfo {
 
 	DWORD   id;//唯一主ID
 	//从系统实时获取
 	DWORD   size;
 	DWORD   usage;
-	DWORD   processID;          // this process
+	//DWORD   processID;          // this process
 	string  defaultHeapID;
 	DWORD   moduleID;           // associated exe
 	DWORD   threads;
@@ -44,6 +50,7 @@ struct processInfo {
 	time_t startTime;
 	time_t endTime;
 	//根据系统信息运算获取
+	struct processesID* processes;
 	time_t lastRunTime;
 	time_t duration;
 	time_t curDuration;
@@ -149,7 +156,13 @@ void callb() {
 			process->moduleID = pe32.th32ModuleID;
 			process->parentProcessID = pe32.th32ParentProcessID;
 			process->priClassBase = pe32.pcPriClassBase;
-			process->processID = pe32.th32ProcessID;
+
+			process->processes->processID = pe32.th32ProcessID;
+			process->processes->processName = pe32.szExeFile;
+			process->processes->next = new struct processesID;
+			process->processes->next->processName = "---null";
+			process->processes->next->next = nullptr;
+
 			process->duration += moniteInterval / 1000;
 			process->curDuration += moniteInterval / 1000;
 			process->size = pe32.dwSize;
@@ -221,48 +234,53 @@ void callb() {
 	cout << "checkpoint 3" << endl;
 	//停止触及规定的进程
 
-	HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
-	THREADENTRY32   te32;
-	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-	te32.dwSize = sizeof(THREADENTRY32);
-	if (!Thread32First(hThreadSnap, &te32))
-	{
-		int a = GetLastError();
-		CloseHandle(hThreadSnap);     // Must clean up the snapshot object!
-	}
-	else {
+	//HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
+	//THREADENTRY32   te32;
+	//hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	//te32.dwSize = sizeof(THREADENTRY32);
+	//if (!Thread32First(hThreadSnap, &te32))
+	//{
+	//	int a = GetLastError();
+	//	CloseHandle(hThreadSnap);     // Must clean up the snapshot object!
+	//}
+	//else {
 
-		struct threadInfo* threadList=new struct threadInfo;
-		struct threadInfo** ptrThreadInfo = &threadList;
-		do
+	//	struct threadInfo* threadList = new struct threadInfo;
+	//	struct threadInfo** ptrThreadInfo = &threadList;
+	//	do
+	//	{
+	//		*ptrThreadInfo = new struct threadInfo;
+	//		(**ptrThreadInfo).ownerProcessID = te32.th32OwnerProcessID;
+	//		(**ptrThreadInfo).threadID = te32.th32ThreadID;
+	//		(**ptrThreadInfo).next = nullptr;
+	//		ptrThreadInfo = &(**ptrThreadInfo).next;
+	//	} while (::Thread32Next(hThreadSnap, &te32));
+	pointer = moniteProcesses;
+	cout << "checkpoint 1" << endl;
+	while (pointer) {
+		if ((*pointer).ProcessInfo->isTerminate)
 		{
-			*ptrThreadInfo = new struct threadInfo;
-			(**ptrThreadInfo).ownerProcessID = te32.th32OwnerProcessID;
-			(**ptrThreadInfo).threadID = te32.th32ThreadID;
-			(**ptrThreadInfo).next = nullptr;
-			ptrThreadInfo = &(**ptrThreadInfo).next;
-		} while (::Thread32Next(hThreadSnap, &te32));
-		pointer = moniteProcesses;
-		cout << "checkpoint 1" << endl;
-		while (pointer) {
-			if ((*pointer).ProcessInfo->isTerminate)
+			//cout << "checkpoint4" << endl;
+			//int processid = (*pointer).ProcessInfo->processID;
+			//struct threadInfo* pointer2 = threadList;
+			//while (pointer2)
+			//{
+			//	cout << "checkpoint 2" << endl;
+			//	if ((*pointer2).ownerProcessID == processid)
+			//	{
+			//		HANDLE handle = OpenThread(THREAD_TERMINATE | THREAD_QUERY_INFORMATION, FALSE, (*pointer2).threadID);
+			//		BOOL bResult = TerminateThread(handle, 0);
+			//		cout << "Terminate thread result:" << bResult << "   error:" << GetLastError() << endl;
+			//		CloseHandle(handle);
+			//	}
+			//	pointer2 = (*pointer2).next;
+			//}
+			struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
+			while (processIDPointer && (*processIDPointer).processName != "---null")
 			{
-				cout << "checkpoint4" << endl;
-				int processid = (*pointer).ProcessInfo->processID;
-				struct threadInfo* pointer2 = threadList;
-				while (pointer2)
-				{
-					cout << "checkpoint 2" << endl;
-					if ((*pointer2).ownerProcessID == processid)
-					{
-						HANDLE handle = OpenThread(THREAD_TERMINATE | THREAD_QUERY_INFORMATION, FALSE, (*pointer2).threadID);
-						BOOL bResult = TerminateThread(handle, 0);
-						cout << "Terminate thread result:" << bResult <<"   error:"<<GetLastError() << endl;
-						CloseHandle(handle);
-					}
-					pointer2 = (*pointer2).next;
-				}
-				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processid);
+				cout << "checkpoint 2" << endl;
+
+				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, (*processIDPointer).processID);
 				if (handle != NULL)
 				{
 					//EnableDebugPrivilege();
@@ -270,10 +288,13 @@ void callb() {
 					cout << "Terminate result:" << bResult << endl;
 					CloseHandle(handle);
 				}
+				processIDPointer = (*processIDPointer).next;
 			}
-			pointer = (*pointer).next;
+
 		}
+		pointer = (*pointer).next;
 	}
+	//	}
 	std::cout << "test ok" << std::endl;
 	if (logFileOpen) logFile.close();
 	return;
@@ -331,6 +352,9 @@ int main(void)
 		(**ptrNodeProcess).ProcessInfo->startTime = (*rules)[i]->GetStartTime();
 		//初始化被监视进程信息
 		(**ptrNodeProcess).ProcessInfo->runTimes = 0;
+		(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
+		(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
+		(**ptrNodeProcess).ProcessInfo->processes->next = nullptr;
 		//(**ptrNodeProcess).ProcessInfo->timeAfterPrevRun = 0;
 		(**ptrNodeProcess).ProcessInfo->lastRunTime = -1;
 		(**ptrNodeProcess).ProcessInfo->duration = 0;
