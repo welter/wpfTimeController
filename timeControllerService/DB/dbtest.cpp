@@ -56,9 +56,16 @@ struct processes {
 	struct processInfo* ProcessInfo;
 	struct processes* next;
 };
+
 struct processesByRuleList {
 	struct processInfo* ProcessInfo;
 	struct processesByRuleList* next;
+};
+
+struct threadInfo {
+	int threadID;
+	int ownerProcessID;
+	threadInfo* next;
 };
 static struct processes* moniteProcesses;// = new struct processes;
 static struct processesByRuleList* processesByRule[runModeCount];
@@ -210,16 +217,52 @@ void callb() {
 		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->isTerminate |= true;
 		scanPtr = (*scanPtr).next;
 	}
+
+	cout << "checkpoint 3" << endl;
 	//停止触及规定的进程
-	pointer = moniteProcesses;
+
 	HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
 	THREADENTRY32   te32;
 	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-	if (hThreadSnap != INVALID_HANDLE_VALUE)
+	te32.dwSize = sizeof(THREADENTRY32);
+	if (!Thread32First(hThreadSnap, &te32))
+	{
+		int a = GetLastError();
+		CloseHandle(hThreadSnap);     // Must clean up the snapshot object!
+	}
+	else {
+
+		struct threadInfo* threadList=new struct threadInfo;
+		struct threadInfo** ptrThreadInfo = &threadList;
+		do
+		{
+			*ptrThreadInfo = new struct threadInfo;
+			(**ptrThreadInfo).ownerProcessID = te32.th32OwnerProcessID;
+			(**ptrThreadInfo).threadID = te32.th32ThreadID;
+			(**ptrThreadInfo).next = nullptr;
+			ptrThreadInfo = &(**ptrThreadInfo).next;
+		} while (::Thread32Next(hThreadSnap, &te32));
+		pointer = moniteProcesses;
+		cout << "checkpoint 1" << endl;
 		while (pointer) {
 			if ((*pointer).ProcessInfo->isTerminate)
 			{
-				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, (*pointer).ProcessInfo->processID);
+				cout << "checkpoint4" << endl;
+				int processid = (*pointer).ProcessInfo->processID;
+				struct threadInfo* pointer2 = threadList;
+				while (pointer2)
+				{
+					cout << "checkpoint 2" << endl;
+					if ((*pointer2).ownerProcessID == processid)
+					{
+						HANDLE handle = OpenThread(THREAD_TERMINATE | THREAD_QUERY_INFORMATION, FALSE, (*pointer2).threadID);
+						BOOL bResult = TerminateThread(handle, 0);
+						cout << "Terminate thread result:" << bResult <<"   error:"<<GetLastError() << endl;
+						CloseHandle(handle);
+					}
+					pointer2 = (*pointer2).next;
+				}
+				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processid);
 				if (handle != NULL)
 				{
 					//EnableDebugPrivilege();
@@ -230,7 +273,7 @@ void callb() {
 			}
 			pointer = (*pointer).next;
 		}
-
+	}
 	std::cout << "test ok" << std::endl;
 	if (logFileOpen) logFile.close();
 	return;
