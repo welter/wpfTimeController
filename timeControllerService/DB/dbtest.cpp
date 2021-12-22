@@ -50,7 +50,10 @@ struct processInfo {
 	time_t startTime;
 	time_t endTime;
 	//根据系统信息运算获取
-	struct processesID* processes;
+	//struct processesID* processes;
+	byte* processesID =new byte[32]{0};
+	byte* ptrLastProcID=&(processesID[0]);
+	int countOfProcessID = 0;
 	time_t lastRunTime;
 	time_t duration;
 	time_t curDuration;
@@ -87,6 +90,33 @@ struct processInfo* findMoniteProc(string procName) {
 }
 
 
+DWORD getProcessID(byte** const processIDGroup, int &restLength)
+{
+	byte* p=new byte[8];
+	//DWORD result;
+	//p =(byte*) &result;
+	*p = (*processIDGroup)[0];
+	p++;
+	*p = (*processIDGroup)[1];
+	p++;
+	*p = (*processIDGroup)[2];
+	p++;
+	*p = (*processIDGroup)[3];
+	p++;
+	*p = (*processIDGroup)[4];
+	p++;
+	*p = (*processIDGroup)[5];
+	p++;
+	*p = (*processIDGroup)[6];
+	p++;
+	*p = (*processIDGroup)[7];
+	p++;
+	byte* rest=new byte[(--restLength)*8];
+	strncpy((char*) rest, (char*)(*processIDGroup+8), restLength*8);
+	delete[] (*processIDGroup);
+	*processIDGroup = rest;
+	return (DWORD) *p;
+}
 BOOL EnableDebugPrivilege()
 
 {
@@ -113,11 +143,15 @@ void callb() {
 	ofstream logFile(logFilePath, ios::app | ios::_Noreplace);
 	bool logFileOpen = logFile.is_open();
 
-	//将被监控程序默认为未运行,不需停止
+	//将被监控程序默认为未运行,不需停止；processid清空；
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
 		(*pointer).ProcessInfo->isRunnig = false;
 		(*pointer).ProcessInfo->isTerminate = false;
+		delete[] (*pointer).ProcessInfo->processesID;
+		(*pointer).ProcessInfo->processesID = new byte[32];
+		(*pointer).ProcessInfo->ptrLastProcID=(*pointer).ProcessInfo->processesID;
+		(*pointer).ProcessInfo->countOfProcessID = 0;
 		pointer = (*pointer).next;
 	}
 	time_t now = time(0);
@@ -157,12 +191,49 @@ void callb() {
 			process->parentProcessID = pe32.th32ParentProcessID;
 			process->priClassBase = pe32.pcPriClassBase;
 
-			process->processes->processID = pe32.th32ProcessID;
+			/*process->processes->processID = pe32.th32ProcessID;
 			process->processes->processName = pe32.szExeFile;
 			process->processes->next = new struct processesID;
 			process->processes->next->processName = "---null";
-			process->processes->next->next = nullptr;
+			process->processes->next->next = nullptr;*/
 
+			byte* p = (byte*) &(pe32.th32ProcessID);
+			//char* p2 = strchr(process->processesID, '\0');
+			if (process->ptrLastProcID + 8 > ((byte*)(process->processesID)+((((process->countOfProcessID >> 3)+1)<<5))))
+			{
+				DWORD oldLength = process->countOfProcessID*8;
+				//process->countOfProcessID += 32;
+				byte* newProcessesID = new byte[oldLength+32];
+				if (strncpy((char*) newProcessesID, (char*) process->processesID, oldLength))
+				{
+					DWORD oldOffset = process->ptrLastProcID - process->processesID;
+					delete[] process->processesID;
+					process->processesID = newProcessesID;
+					process->ptrLastProcID = process->processesID + oldOffset;
+
+				}
+				else;
+			}
+			*(process->ptrLastProcID) = p[0];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[1];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[2];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[3];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[4];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[5];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[6];
+			process->ptrLastProcID++;
+			*(process->ptrLastProcID) = p[7];
+			//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
+			
+			printf("ProcessID:%u%u%u%u%u%u%u%u\n" ,(byte)p[0],(byte)p[1],(byte)p[2],(byte)p[3],(byte)p[4],(byte)p[5], (byte)p[6],(byte)p[7]);  //测试
+			process->ptrLastProcID++;
+			process->countOfProcessID++;
 			process->duration += moniteInterval / 1000;
 			process->curDuration += moniteInterval / 1000;
 			process->size = pe32.dwSize;
@@ -179,6 +250,24 @@ void callb() {
 	}
 	// 释放snapshot对象
 	::CloseHandle(hProcessSnap);
+
+
+	//测试
+	processes* pointert=moniteProcesses;
+	for (int i = 0; i < maxMoniteProc; i++) {
+		if (pointert->ProcessInfo->processName == "msedge.exe") {
+			cout << "ProcessID2:  ";
+			byte* pp1 = pointert->ProcessInfo->processesID;
+			for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
+				printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //测试
+				pp1 += 8;
+			}
+			cout << endl;
+		}
+		pointert = pointert->next;
+	}
+
+	//测试结束
 
 	static struct processesByRuleList* scanPtr;
 	processInfo* pInfo;
@@ -258,7 +347,12 @@ void callb() {
 	pointer = moniteProcesses;
 	cout << "checkpoint 1" << endl;
 	while (pointer) {
-		if ((*pointer).ProcessInfo->isTerminate)
+		//if ((*pointer).ProcessInfo->isTerminate)
+
+		//测试
+		if ((*pointer).ProcessInfo->processName=="msedge.exe")
+        //测试结束
+
 		{
 			//cout << "checkpoint4" << endl;
 			//int processid = (*pointer).ProcessInfo->processID;
@@ -275,12 +369,16 @@ void callb() {
 			//	}
 			//	pointer2 = (*pointer2).next;
 			//}
-			struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
-			while (processIDPointer && (*processIDPointer).processName != "---null")
+			//struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
+			//while (processIDPointer && (*processIDPointer).processName != "---null")
+			DWORD id;
+			byte* rest;
+			int restLength=(*pointer).ProcessInfo->countOfProcessID;
+			while (id=getProcessID(&(*pointer).ProcessInfo->processesID,restLength))
 			{
 				cout << "checkpoint 2" << endl;
 
-				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, (*processIDPointer).processID);
+				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, id);
 				if (handle != NULL)
 				{
 					//EnableDebugPrivilege();
@@ -288,7 +386,6 @@ void callb() {
 					cout << "Terminate result:" << bResult << endl;
 					CloseHandle(handle);
 				}
-				processIDPointer = (*processIDPointer).next;
 			}
 
 		}
@@ -352,9 +449,9 @@ int main(void)
 		(**ptrNodeProcess).ProcessInfo->startTime = (*rules)[i]->GetStartTime();
 		//初始化被监视进程信息
 		(**ptrNodeProcess).ProcessInfo->runTimes = 0;
-		(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
-		(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
-		(**ptrNodeProcess).ProcessInfo->processes->next = nullptr;
+		//(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
+		//(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
+		//(**ptrNodeProcess).ProcessInfo->processes->next = nullptr;
 		//(**ptrNodeProcess).ProcessInfo->timeAfterPrevRun = 0;
 		(**ptrNodeProcess).ProcessInfo->lastRunTime = -1;
 		(**ptrNodeProcess).ProcessInfo->duration = 0;
@@ -393,7 +490,8 @@ int main(void)
 	delete rules;
 	WindowsTimer timer;
 	timer.setCallback(callb);
-	timer.start(moniteInterval, true);
+	//timer.start(moniteInterval, true);
+	callb();//仅一次性调用测试
 	OutputDebugString("hello");
 	while (true)
 	{
