@@ -82,7 +82,7 @@ static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
 struct processInfo* findMoniteProc(string procName) {
 	struct processes* pointer = moniteProcesses;
-	while (pointer && (*pointer).next) {
+	while (pointer) {
 		if ((*pointer).ProcessInfo->processName == procName) return (*pointer).ProcessInfo;
 		else
 			pointer = (*pointer).next;
@@ -93,30 +93,36 @@ struct processInfo* findMoniteProc(string procName) {
 
 DWORD getProcessID(byte** const processIDGroup, int& restLength)
 {
-	byte* p = new byte[8];
-	//DWORD result;
-	//p =(byte*) &result;
-	*p = (*processIDGroup)[0];
-	p++;
-	*p = (*processIDGroup)[1];
-	p++;
-	*p = (*processIDGroup)[2];
-	p++;
-	*p = (*processIDGroup)[3];
-	p++;
-	*p = (*processIDGroup)[4];
-	p++;
-	*p = (*processIDGroup)[5];
-	p++;
-	*p = (*processIDGroup)[6];
-	p++;
-	*p = (*processIDGroup)[7];
-	p++;
-	byte* rest = new byte[(--restLength) * 8];
-	strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
-	delete[](*processIDGroup);
-	*processIDGroup = rest;
-	return (DWORD)*p;
+	if (restLength > 0) {
+		byte* p = new byte[8];
+		//DWORD result;
+		//p =(byte*) &result;
+		*p = (*processIDGroup)[0];
+		p++;
+		*p = (*processIDGroup)[1];
+		p++;
+		*p = (*processIDGroup)[2];
+		p++;
+		*p = (*processIDGroup)[3];
+		p++;
+		*p = (*processIDGroup)[4];
+		p++;
+		*p = (*processIDGroup)[5];
+		p++;
+		*p = (*processIDGroup)[6];
+		p++;
+		*p = (*processIDGroup)[7];
+		p++;
+		byte* rest = new byte[(--restLength) * 8];
+		strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
+		delete[](*processIDGroup);
+		*processIDGroup = rest;
+		return (DWORD)*p;
+	}
+	else {
+		*processIDGroup = nullptr;
+		return 0;
+	}
 }
 BOOL EnableDebugPrivilege()
 
