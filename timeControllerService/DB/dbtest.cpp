@@ -538,7 +538,8 @@ int main(void)
 		string newName = (string) logFileName + (string) cThatTime+".log";
 		rename(oldName.c_str(), newName.c_str());
 		int error;
-		zip_t* archive=zip_open("test.zip", ZIP_CREATE, &error);
+		string archiveFileName = (string)logFileName + ".zip";
+		zip_t* archive=zip_open(archiveFileName.c_str(), ZIP_CREATE, &error);
 		zip_source_t* s;
 		zip_error_t* zerror=new zip_error_t;
 		if ((s = zip_source_file_create(newName.c_str(), 0, -1, zerror)) == NULL ||
