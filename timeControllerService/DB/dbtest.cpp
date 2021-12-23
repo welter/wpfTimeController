@@ -14,7 +14,7 @@ using namespace std;
 
 const char* logFilePath = "test.log";
 const int moniteInterval = 5000;
-const int eachRunInterval = 20;//相隔多少时间当做两次运行，单位秒
+const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
 //同名进程集结构
 struct processesID {
@@ -152,7 +152,7 @@ void callb() {
 	ofstream logFile(logFilePath, ios::app | ios::_Noreplace);
 	bool logFileOpen = logFile.is_open();
 
-	//将被监控程序默认为未运行,不需停止；processid清空；
+	//将被监控程序默认为未运行、不需停止；清空processid；
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
 		(*pointer).ProcessInfo->isRunnig = false;
@@ -190,7 +190,7 @@ void callb() {
 			//更新被监控进程实时信息
 			process->defaultHeapID = pe32.th32DefaultHeapID;
 			process->flags = pe32.dwFlags;
-			if (now - process->lastRunTime > eachRunInterval)
+			if (now - process->lastRunTime > intervalAsNextRun)
 			{
 				process->runTimes += 1;
 				process->curDuration = 0;
@@ -356,10 +356,10 @@ void callb() {
 	pointer = moniteProcesses;
 	cout << "checkpoint 1" << endl;
 	while (pointer) {
-		//if ((*pointer).ProcessInfo->isTerminate)
+		if ((*pointer).ProcessInfo->isTerminate)
 
 		//测试
-		if ((*pointer).ProcessInfo->processName == "notepad.exe")
+		//if ((*pointer).ProcessInfo->processName == "notepad.exe")
 			//测试结束
 
 		{
