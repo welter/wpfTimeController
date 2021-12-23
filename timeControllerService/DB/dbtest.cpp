@@ -91,38 +91,40 @@ struct processInfo* findMoniteProc(string procName) {
 }
 
 
-DWORD getProcessID(byte** const processIDGroup, int& restLength)
+DWORD getProcessID(byte* const processIDGroup, byte& num,byte count)
 {
-	if (restLength > 0) {
+	if (count>num) {
 		byte* p = new byte[8];
+		DWORD offset = num<<3;
 		//DWORD result;
 		//p =(byte*) &result;
-		*p = (*processIDGroup)[0];
-		//p++;
-		p[1] = (*processIDGroup)[1];
-		//p++;
-		p[2] = (*processIDGroup)[2];
-		//p++;
-		p[3] = (*processIDGroup)[3];
-		//p++;
-		p[4] = (*processIDGroup)[4];
-		//p++;
-		p[5] = (*processIDGroup)[5];
-		//p++;
-		p[6] = (*processIDGroup)[6];
-		//p++;
-		p[7] = (*processIDGroup)[7];
-		//p++;
-		byte* rest = new byte[(--restLength) * 8];
-		strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
-		delete[](*processIDGroup);
-		*processIDGroup = rest;
+		*p = processIDGroup[offset];
+		offset++;
+		p[1] = processIDGroup[offset];
+		offset++;
+		p[2] = processIDGroup[offset];
+		offset++;
+		p[3] = processIDGroup[offset];
+		offset++;
+		p[4] = processIDGroup[offset];
+		offset++;
+		p[5] = processIDGroup[offset];
+		offset++;
+		p[6] = processIDGroup[offset];
+		offset++;
+		p[7] = processIDGroup[offset];
+		offset++;
+		//byte* rest = new byte[(--restLength) * 8];
+		//strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
+		//delete[](*processIDGroup);
+		//*processIDGroup = rest;
 		DWORD result = *((DWORD *) p);
 		delete[] p;
+		num++;
 		return result;
 	}
 	else {
-		*processIDGroup = nullptr;
+//		*processIDGroup = nullptr;
 		return 0;
 	}
 }
@@ -208,9 +210,9 @@ void callb() {
 
 			byte* p = (byte*)&(pe32.th32ProcessID);
 			//char* p2 = strchr(process->processesID, '\0');
-			if (process->ptrLastProcID + 8 > ((byte*)(process->processesID) + ((process->countOfProcessID << 2) + 32)))
+			if (process->ptrLastProcID +8 >= ((byte*)(process->processesID) + ((((process->countOfProcessID) >> 2)+1)<<5)))
 			{
-				DWORD oldLength = process->countOfProcessID * 8;
+				DWORD oldLength = (process->countOfProcessID+1) * 8;
 				//process->countOfProcessID += 32;
 				byte* newProcessesID = new byte[oldLength + 32];
 				if (strncpy((char*)newProcessesID, (char*)process->processesID, oldLength))
@@ -264,7 +266,7 @@ void callb() {
 	//≤‚ ‘
 	processes* pointert = moniteProcesses;
 	for (int i = 0; i < maxMoniteProc; i++) {
-		if (pointert->ProcessInfo->processName == "notepad.exe") {
+		if (pointert->ProcessInfo->processName == "msedge.exe") {
 			cout << "ProcessID2:  ";
 			byte* pp1 = pointert->ProcessInfo->processesID;
 			for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
@@ -356,10 +358,10 @@ void callb() {
 	pointer = moniteProcesses;
 	cout << "checkpoint 1" << endl;
 	while (pointer) {
-		if ((*pointer).ProcessInfo->isTerminate)
+		//if ((*pointer).ProcessInfo->isTerminate)
 
 		//≤‚ ‘
-		//if ((*pointer).ProcessInfo->processName == "notepad.exe")
+		if ((*pointer).ProcessInfo->processName == "msedge.exe")
 			//≤‚ ‘Ω· ¯
 
 		{
@@ -381,9 +383,10 @@ void callb() {
 			//struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
 			//while (processIDPointer && (*processIDPointer).processName != "---null")
 			DWORD id;
-			byte* rest;
-			int restLength = (*pointer).ProcessInfo->countOfProcessID;
-			while (id = getProcessID(&(*pointer).ProcessInfo->processesID, restLength))
+			byte order=0;
+			byte count = (*pointer).ProcessInfo->countOfProcessID;
+			
+			while (id = getProcessID(pointer->ProcessInfo->processesID, order,count))
 			{
 				cout << "checkpoint 2" << endl;
 
