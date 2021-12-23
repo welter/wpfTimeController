@@ -151,7 +151,7 @@ BOOL EnableDebugPrivilege()
 
 void callb() {
 
-	ofstream logFile(logFilePath, ios::app | ios::_Noreplace);
+	ofstream logFile(logFilePath, ios::app);
 	bool logFileOpen = logFile.is_open();
 
 	//将被监控程序默认为未运行、不需停止；清空processid；
