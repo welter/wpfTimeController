@@ -9,6 +9,7 @@
 #include "RuleModel.h"
 #include "../Timer/Timer.h"
 #include "DBRuleService.h"
+#include <zip.h>
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 
@@ -88,6 +89,27 @@ struct processInfo* findMoniteProc(string procName) {
 			pointer = (*pointer).next;
 	}
 	return nullptr;
+}
+
+
+// WCHAR 转换为 std::string
+string WCHAR2String(LPCWSTR pwszSrc)
+{
+	int nLen = WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, NULL, 0, NULL, NULL);
+	if (nLen <= 0)
+		return std::string("");
+
+	char* pszDst = new char[nLen];
+	if (NULL == pszDst)
+		return string("");
+
+	WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, pszDst, nLen, NULL, NULL);
+	pszDst[nLen - 1] = 0;
+
+	std::string strTmp(pszDst);
+	delete[] pszDst;
+
+	return strTmp;
 }
 
 
@@ -505,7 +527,7 @@ int main(void)
 	timer.setCallback(callb);
 	//timer.start(moniteInterval, true);
 	callb();//仅一次性调用测试
-	OutputDebugString("hello");
+	OutputDebugString( "hello");
 	while (true)
 	{
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
