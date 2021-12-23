@@ -53,7 +53,7 @@ struct processInfo {
 	//struct processesID* processes;
 	byte* processesID = new byte[32]{ 0 };
 	byte* ptrLastProcID = &(processesID[0]);
-	int countOfProcessID = 0;
+	byte countOfProcessID = 0;
 	time_t lastRunTime;
 	time_t duration;
 	time_t curDuration;
@@ -209,13 +209,14 @@ void callb() {
 			process->processes->next->next = nullptr;*/
 
 			byte* p = (byte*)&(pe32.th32ProcessID);
+			byte c = process->countOfProcessID;
 			//char* p2 = strchr(process->processesID, '\0');
-			if (process->ptrLastProcID +8 >= ((byte*)(process->processesID) + ((((process->countOfProcessID) >> 2)+1)<<5)))
+			if ((c>0) && process->ptrLastProcID >= ((byte*)(process->processesID) + ((((c-1) >> 2)+1)<<5)))
 			{
-				DWORD oldLength = (process->countOfProcessID+1) * 8;
+				DWORD oldLength = c * 8;
 				//process->countOfProcessID += 32;
 				byte* newProcessesID = new byte[oldLength + 32];
-				if (strncpy((char*)newProcessesID, (char*)process->processesID, oldLength))
+				if (memcpy(newProcessesID, process->processesID, oldLength))
 				{
 					DWORD oldOffset = process->ptrLastProcID - process->processesID;
 					delete[] process->processesID;
