@@ -51,8 +51,8 @@ struct processInfo {
 	time_t endTime;
 	//根据系统信息运算获取
 	//struct processesID* processes;
-	byte* processesID =new byte[32]{0};
-	byte* ptrLastProcID=&(processesID[0]);
+	byte* processesID = new byte[32]{ 0 };
+	byte* ptrLastProcID = &(processesID[0]);
 	int countOfProcessID = 0;
 	time_t lastRunTime;
 	time_t duration;
@@ -82,17 +82,18 @@ static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
 struct processInfo* findMoniteProc(string procName) {
 	struct processes* pointer = moniteProcesses;
-	while ((*pointer).ProcessInfo->processName != procName && (*pointer).next) {
-		pointer = (*pointer).next;
+	while (pointer && (*pointer).next) {
+		if ((*pointer).ProcessInfo->processName == procName) return (*pointer).ProcessInfo;
+		else
+			pointer = (*pointer).next;
 	}
-	if ((*pointer).next) return (*pointer).ProcessInfo;
-	else return nullptr;
+	return nullptr;
 }
 
 
-DWORD getProcessID(byte** const processIDGroup, int &restLength)
+DWORD getProcessID(byte** const processIDGroup, int& restLength)
 {
-	byte* p=new byte[8];
+	byte* p = new byte[8];
 	//DWORD result;
 	//p =(byte*) &result;
 	*p = (*processIDGroup)[0];
@@ -111,11 +112,11 @@ DWORD getProcessID(byte** const processIDGroup, int &restLength)
 	p++;
 	*p = (*processIDGroup)[7];
 	p++;
-	byte* rest=new byte[(--restLength)*8];
-	strncpy((char*) rest, (char*)(*processIDGroup+8), restLength*8);
-	delete[] (*processIDGroup);
+	byte* rest = new byte[(--restLength) * 8];
+	strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
+	delete[](*processIDGroup);
 	*processIDGroup = rest;
-	return (DWORD) *p;
+	return (DWORD)*p;
 }
 BOOL EnableDebugPrivilege()
 
@@ -148,9 +149,9 @@ void callb() {
 	while (pointer) {
 		(*pointer).ProcessInfo->isRunnig = false;
 		(*pointer).ProcessInfo->isTerminate = false;
-		delete[] (*pointer).ProcessInfo->processesID;
+		delete[](*pointer).ProcessInfo->processesID;
 		(*pointer).ProcessInfo->processesID = new byte[32];
-		(*pointer).ProcessInfo->ptrLastProcID=(*pointer).ProcessInfo->processesID;
+		(*pointer).ProcessInfo->ptrLastProcID = (*pointer).ProcessInfo->processesID;
 		(*pointer).ProcessInfo->countOfProcessID = 0;
 		pointer = (*pointer).next;
 	}
@@ -197,14 +198,14 @@ void callb() {
 			process->processes->next->processName = "---null";
 			process->processes->next->next = nullptr;*/
 
-			byte* p = (byte*) &(pe32.th32ProcessID);
+			byte* p = (byte*)&(pe32.th32ProcessID);
 			//char* p2 = strchr(process->processesID, '\0');
-			if (process->ptrLastProcID + 8 > ((byte*)(process->processesID)+((((process->countOfProcessID >> 3)+1)<<5))))
+			if (process->ptrLastProcID + 8 > ((byte*)(process->processesID) + ((process->countOfProcessID << 2) + 32)))
 			{
-				DWORD oldLength = process->countOfProcessID*8;
+				DWORD oldLength = process->countOfProcessID * 8;
 				//process->countOfProcessID += 32;
-				byte* newProcessesID = new byte[oldLength+32];
-				if (strncpy((char*) newProcessesID, (char*) process->processesID, oldLength))
+				byte* newProcessesID = new byte[oldLength + 32];
+				if (strncpy((char*)newProcessesID, (char*)process->processesID, oldLength))
 				{
 					DWORD oldOffset = process->ptrLastProcID - process->processesID;
 					delete[] process->processesID;
@@ -230,8 +231,8 @@ void callb() {
 			process->ptrLastProcID++;
 			*(process->ptrLastProcID) = p[7];
 			//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
-			
-			printf("ProcessID:%u%u%u%u%u%u%u%u\n" ,(byte)p[0],(byte)p[1],(byte)p[2],(byte)p[3],(byte)p[4],(byte)p[5], (byte)p[6],(byte)p[7]);  //测试
+
+			printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
 			process->ptrLastProcID++;
 			process->countOfProcessID++;
 			process->duration += moniteInterval / 1000;
@@ -253,9 +254,9 @@ void callb() {
 
 
 	//测试
-	processes* pointert=moniteProcesses;
+	processes* pointert = moniteProcesses;
 	for (int i = 0; i < maxMoniteProc; i++) {
-		if (pointert->ProcessInfo->processName == "msedge.exe") {
+		if (pointert->ProcessInfo->processName == "notepad.exe") {
 			cout << "ProcessID2:  ";
 			byte* pp1 = pointert->ProcessInfo->processesID;
 			for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
@@ -350,8 +351,8 @@ void callb() {
 		//if ((*pointer).ProcessInfo->isTerminate)
 
 		//测试
-		if ((*pointer).ProcessInfo->processName=="msedge.exe")
-        //测试结束
+		if ((*pointer).ProcessInfo->processName == "notepad.exe")
+			//测试结束
 
 		{
 			//cout << "checkpoint4" << endl;
@@ -373,8 +374,8 @@ void callb() {
 			//while (processIDPointer && (*processIDPointer).processName != "---null")
 			DWORD id;
 			byte* rest;
-			int restLength=(*pointer).ProcessInfo->countOfProcessID;
-			while (id=getProcessID(&(*pointer).ProcessInfo->processesID,restLength))
+			int restLength = (*pointer).ProcessInfo->countOfProcessID;
+			while (id = getProcessID(&(*pointer).ProcessInfo->processesID, restLength))
 			{
 				cout << "checkpoint 2" << endl;
 
