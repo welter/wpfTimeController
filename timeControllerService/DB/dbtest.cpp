@@ -13,7 +13,8 @@
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 
-const char* logFilePath = "test.log";
+const char* logFileName = "test";
+const char* logFilePath = "/";
 const int moniteInterval = 5000;
 const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
@@ -172,8 +173,7 @@ BOOL EnableDebugPrivilege()
 }
 
 void callb() {
-
-	ofstream logFile(logFilePath, ios::app);
+	ofstream logFile(*logFileName + ".log", ios::app);
 	bool logFileOpen = logFile.is_open();
 
 	//将被监控程序默认为未运行、不需停止；清空processid；
@@ -192,7 +192,7 @@ void callb() {
 	PROCESSENTRY32 pe32;
 	// 在使用这个结构之前，先设置它的大小
 	pe32.dwSize = sizeof(pe32);
-	if (logFileOpen) logFile << "记录时间：" << dt << endl;
+	if (logFileOpen) logFile <<endl<< "**********----------"<<endl<<"记录时间：" << dt << endl<< "----------**********" << endl;
 	// 给系统内的所有进程拍一个快照
 	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hProcessSnap == INVALID_HANDLE_VALUE)
@@ -523,6 +523,31 @@ int main(void)
 	//if (curNodeProcess) delete curNodeProcess;
 	delete* rules;
 	delete rules;
+	time_t now=time(0);
+	tm* tmThatTime = _localtime64(&now);
+	char cThatTime[30];
+	memset(cThatTime, 0, 30);
+	sprintf(cThatTime, "%02d%02d%02d_%02dh%02dm%02ds", tmThatTime->tm_year -100, tmThatTime->tm_mon + 1,
+		tmThatTime->tm_mday, tmThatTime->tm_hour, tmThatTime->tm_min, tmThatTime->tm_sec);
+	WIN32_FIND_DATA* fd=new WIN32_FIND_DATA;
+	HANDLE fh;
+	string oldName =(string) logFileName + ".log";
+	if ((fh=FindFirstFile(oldName.c_str(), fd)) != INVALID_HANDLE_VALUE)
+	{
+		
+		string newName = (string) logFileName + (string) cThatTime+".log";
+		rename(oldName.c_str(), newName.c_str());
+		int error;
+		zip_t* archive=zip_open("test.zip", ZIP_CREATE, &error);
+		zip_source_t* s;
+		zip_error_t* zerror=new zip_error_t;
+		if ((s = zip_source_file_create(newName.c_str(), 0, -1, zerror)) == NULL ||
+			zip_file_add(archive, newName.c_str(), s, ZIP_FL_ENC_UTF_8) < 0) {
+			zip_source_free(s);
+			printf("error adding file: %s\n", zip_strerror(archive));
+		}
+		if (zip_close(archive)==0) DeleteFile(newName.c_str());
+	};
 	WindowsTimer timer;
 	timer.setCallback(callb);
 	//timer.start(moniteInterval, true);
