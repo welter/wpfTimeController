@@ -6,6 +6,7 @@
 #include <fstream>
 #include <Psapi.h>
 #pragma comment(lib,"Psapi.lib")
+#include <WinBase.h>
 #include "RuleModel.h"
 #include "../Timer/Timer.h"
 #include "DBRuleService.h"
@@ -13,16 +14,30 @@
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 
-const char* logFileName = "test";
+const string logFileName = "test";
 const char* logFilePath = "/";
 const int moniteInterval = 5000;
 const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
+const int maxLogDataLen = 6000;
+
 //同名进程集结构
 struct processesID {
 	DWORD processID; //进程id
 	string processName; //进程名称
 	processesID* next;
+};
+struct struLogData {
+	DWORD cntThreads;
+	DWORD cntUsage;
+	DWORD dwFlags;
+	DWORD dwSize;
+	DWORD pcPriClassBase;
+	string szExeFile;
+	ULONG_PTR th32DefaultHeapID;
+	DWORD th32ModuleID;
+	DWORD th32ParentProcessID;
+	DWORD th32ProcessID;
 };
 struct processInfo {
 
@@ -31,7 +46,7 @@ struct processInfo {
 	DWORD   size;
 	DWORD   usage;
 	//DWORD   processID;          // this process
-	string  defaultHeapID;
+	ULONG_PTR  defaultHeapID;
 	DWORD   moduleID;           // associated exe
 	DWORD   threads;
 	DWORD   parentProcessID;    // this process's parent process
@@ -82,6 +97,11 @@ struct threadInfo {
 static struct processes* moniteProcesses;// = new struct processes;
 static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
+static struct struLogData* logData = new struLogData[maxLogDataLen];
+static int logDataLen = 0;
+
+
+
 struct processInfo* findMoniteProc(string procName) {
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
@@ -114,11 +134,11 @@ string WCHAR2String(LPCWSTR pwszSrc)
 }
 
 
-DWORD getProcessID(byte* const processIDGroup, byte& num,byte count)
+DWORD getProcessID(byte* const processIDGroup, byte& num, byte count)
 {
-	if (count>num) {
+	if (count > num) {
 		byte* p = new byte[8];
-		DWORD offset = num<<3;
+		DWORD offset = num << 3;
 		//DWORD result;
 		//p =(byte*) &result;
 		*p = processIDGroup[offset];
@@ -141,13 +161,13 @@ DWORD getProcessID(byte* const processIDGroup, byte& num,byte count)
 		//strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
 		//delete[](*processIDGroup);
 		//*processIDGroup = rest;
-		DWORD result = *((DWORD *) p);
+		DWORD result = *((DWORD*)p);
 		delete[] p;
 		num++;
 		return result;
 	}
 	else {
-//		*processIDGroup = nullptr;
+		//		*processIDGroup = nullptr;
 		return 0;
 	}
 }
@@ -172,9 +192,36 @@ BOOL EnableDebugPrivilege()
 	return fOk;
 }
 
-void callb() {
-	ofstream logFile(*logFileName + ".log", ios::app);
+void mainThread() {
+	time_t now = time(0);
+	char* dt = ctime(&now);
+	string s = logFileName + ".log";
+	ofstream logFile(s, ios::app);
 	bool logFileOpen = logFile.is_open();
+	int a = GetLastError();
+	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+	if (logFileOpen && canLog)
+	{
+		logFile << endl << "**************************记录时间：" << dt << endl;
+		for (int i = 0; i < logDataLen; i++)
+		{
+
+			if (logFileOpen)
+				logFile << logData[i].cntThreads << "  " << logData[i].cntUsage << "  " << logData[i].dwFlags << "   " << logData[i].dwSize << "  " << logData[i].pcPriClassBase
+				<< "  " << logData[i].szExeFile << "  " << logData[i].th32DefaultHeapID
+				<< "  " << logData[i].th32ModuleID << "  " << logData[i].th32ParentProcessID << "  " << logData[i].th32ProcessID << endl;
+		}
+		logFile << "**************-----------------------**************" << endl;
+	}
+	if (logFileOpen) logFile.close();
+	CloseHandle(hMutex);
+	hMutex = NULL;
+	return;
+}
+
+
+void moniteThread() {
 
 	//将被监控程序默认为未运行、不需停止；清空processid；
 	struct processes* pointer = moniteProcesses;
@@ -192,7 +239,7 @@ void callb() {
 	PROCESSENTRY32 pe32;
 	// 在使用这个结构之前，先设置它的大小
 	pe32.dwSize = sizeof(pe32);
-	if (logFileOpen) logFile <<endl<< "**********----------"<<endl<<"记录时间：" << dt << endl<< "----------**********" << endl;
+
 	// 给系统内的所有进程拍一个快照
 	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hProcessSnap == INVALID_HANDLE_VALUE)
@@ -200,13 +247,34 @@ void callb() {
 		printf(" CreateToolhelp32Snapshot调用失败！ \n");
 		return;
 	}
+	//能否记录log
+	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+	if (canLog)
+		logDataLen = 0;
+	else
+	{
+		CloseHandle(hMutex);
+		hMutex = NULL;
+	}
 	// 遍历进程快照
 	BOOL bMore = ::Process32First(hProcessSnap, &pe32);
 	while (bMore)
 	{
-		if (logFileOpen)
-			logFile << pe32.cntThreads << "  " << pe32.cntUsage << "  " << pe32.dwFlags << "   " << pe32.dwSize << "  " << pe32.pcPriClassBase << "  " << pe32.szExeFile << "  " << pe32.th32DefaultHeapID
-			<< "  " << pe32.th32ModuleID << "  " << pe32.th32ParentProcessID << "  " << pe32.th32ProcessID << endl;
+		if (canLog)
+		{
+			logData[logDataLen].cntThreads = pe32.cntThreads;
+			logData[logDataLen].cntUsage = pe32.cntUsage;
+			logData[logDataLen].dwFlags = pe32.dwFlags;
+			logData[logDataLen].dwSize = pe32.dwSize;
+			logData[logDataLen].pcPriClassBase = pe32.pcPriClassBase;
+			logData[logDataLen].szExeFile = pe32.szExeFile;
+			logData[logDataLen].th32DefaultHeapID = pe32.th32DefaultHeapID;
+			logData[logDataLen].th32ModuleID = pe32.th32ModuleID;
+			logData[logDataLen].th32ParentProcessID = pe32.th32ParentProcessID;
+			logData[logDataLen].th32ProcessID = pe32.th32ProcessID;
+			if (++logDataLen == maxLogDataLen) logDataLen = 0;
+		}
 		//判断是否被监控进程
 		struct processInfo* process = findMoniteProc(pe32.szExeFile);
 		if (process != NULL) {
@@ -233,7 +301,7 @@ void callb() {
 			byte* p = (byte*)&(pe32.th32ProcessID);
 			byte c = process->countOfProcessID;
 			//char* p2 = strchr(process->processesID, '\0');
-			if ((c>0) && process->ptrLastProcID >= ((byte*)(process->processesID) + ((((c-1) >> 2)+1)<<5)))
+			if ((c > 0) && process->ptrLastProcID >= ((byte*)(process->processesID) + ((((c - 1) >> 2) + 1) << 5)))
 			{
 				DWORD oldLength = c * 8;
 				//process->countOfProcessID += 32;
@@ -281,6 +349,10 @@ void callb() {
 		//printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
 
 		bMore = ::Process32Next(hProcessSnap, &pe32);
+	}
+	if (hMutex) {
+		CloseHandle(hMutex);
+		hMutex = NULL;
 	}
 	// 释放snapshot对象
 	::CloseHandle(hProcessSnap);
@@ -406,10 +478,10 @@ void callb() {
 			//struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
 			//while (processIDPointer && (*processIDPointer).processName != "---null")
 			DWORD id;
-			byte order=0;
+			byte order = 0;
 			byte count = (*pointer).ProcessInfo->countOfProcessID;
-			
-			while (id = getProcessID(pointer->ProcessInfo->processesID, order,count))
+
+			while (id = getProcessID(pointer->ProcessInfo->processesID, order, count))
 			{
 				cout << "checkpoint 2" << endl;
 
@@ -428,9 +500,12 @@ void callb() {
 	}
 	//	}
 	std::cout << "test ok" << std::endl;
-	if (logFileOpen) logFile.close();
+
 	return;
 };
+
+
+
 int main(void)
 {
 	std::cout << "hello0" << std::endl;
@@ -523,37 +598,43 @@ int main(void)
 	//if (curNodeProcess) delete curNodeProcess;
 	delete* rules;
 	delete rules;
-	time_t now=time(0);
+	time_t now = time(0);
 	tm* tmThatTime = _localtime64(&now);
 	char cThatTime[30];
 	memset(cThatTime, 0, 30);
-	sprintf(cThatTime, "%02d%02d%02d_%02dh%02dm%02ds", tmThatTime->tm_year -100, tmThatTime->tm_mon + 1,
+	sprintf(cThatTime, "%02d%02d%02d_%02dh%02dm%02ds", tmThatTime->tm_year - 100, tmThatTime->tm_mon + 1,
 		tmThatTime->tm_mday, tmThatTime->tm_hour, tmThatTime->tm_min, tmThatTime->tm_sec);
-	WIN32_FIND_DATA* fd=new WIN32_FIND_DATA;
+	WIN32_FIND_DATA* fd = new WIN32_FIND_DATA;
 	HANDLE fh;
-	string oldName =(string) logFileName + ".log";
-	if ((fh=FindFirstFile(oldName.c_str(), fd)) != INVALID_HANDLE_VALUE)
+	string oldName = (string)logFileName + ".log";
+	if ((fh = FindFirstFile(oldName.c_str(), fd)) != INVALID_HANDLE_VALUE)
 	{
-		
-		string newName = (string) logFileName + (string) cThatTime+".log";
+
+		string newName = (string)logFileName + (string)cThatTime + ".log";
 		rename(oldName.c_str(), newName.c_str());
 		int error;
 		string archiveFileName = (string)logFileName + ".zip";
-		zip_t* archive=zip_open(archiveFileName.c_str(), ZIP_CREATE, &error);
+		zip_t* archive = zip_open(archiveFileName.c_str(), ZIP_CREATE, &error);
 		zip_source_t* s;
-		zip_error_t* zerror=new zip_error_t;
+		zip_error_t* zerror = new zip_error_t;
 		if ((s = zip_source_file_create(newName.c_str(), 0, -1, zerror)) == NULL ||
 			zip_file_add(archive, newName.c_str(), s, ZIP_FL_ENC_UTF_8) < 0) {
 			zip_source_free(s);
 			printf("error adding file: %s\n", zip_strerror(archive));
 		}
-		if (zip_close(archive)==0) DeleteFile(newName.c_str());
+		if (zip_close(archive) == 0) DeleteFile(newName.c_str());
 	};
-	WindowsTimer timer;
-	timer.setCallback(callb);
-	//timer.start(moniteInterval, true);
-	callb();//仅一次性调用测试
-	OutputDebugString( "hello");
+
+
+
+	WindowsTimer timer1, timer2;
+	timer1.setCallback(moniteThread);
+	timer2.setCallback(mainThread);
+	timer1.start(moniteInterval, true);
+	timer2.start(10000,true);
+	//moniteThread();//仅一次性调用测试
+	//mainThread();//仅一次性调用测试
+	OutputDebugString("hello");
 	while (true)
 	{
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
