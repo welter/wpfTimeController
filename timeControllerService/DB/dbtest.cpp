@@ -15,6 +15,7 @@ using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 
 const string logFileName = "test";
+const string procInfoDatFileName = "procinfo";
 const char* logFilePath = "/";
 const int moniteInterval = 5000;
 const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
@@ -199,6 +200,9 @@ void mainThread() {
 	string s = logFileName + ".log";
 	ofstream logFile(s, ios::app);
 	bool logFileOpen = logFile.is_open();
+	s = procInfoDatFileName + ".dat";
+	ofstream datFile(s, ios::trunc);
+	bool datFileOpen = datFile.is_open();
 	int a = GetLastError();
 	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
 	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
@@ -216,6 +220,22 @@ void mainThread() {
 		logFile << "**************-----------------------**************" << endl;
 	}
 	if (logFileOpen) logFile.close();
+	if (datFileOpen && canLog)
+	{
+		datFile << maxMoniteProc << endl;
+		for (int i = 0; i < maxMoniteProc; i++) {
+			datFile << moniteProcesses[i].ProcessInfo->processName << endl;
+			datFile << moniteProcesses[i].ProcessInfo->startTime<<endl;
+			datFile<< moniteProcesses[i].ProcessInfo->lastRunTime << endl;
+			datFile<< moniteProcesses[i].ProcessInfo->duration << endl;
+			datFile << moniteProcesses[i].ProcessInfo->curDuration << endl;
+			datFile<< moniteProcesses[i].ProcessInfo->runTimes << endl;
+			datFile<< moniteProcesses[i].ProcessInfo->isRunnig << endl;
+			datFile<< moniteProcesses[i].ProcessInfo->isTerminate << endl;
+			datFile << endl;
+		}
+	}
+	if (datFileOpen) datFile.close();
 	CloseHandle(hMutex);
 	hMutex = NULL;
 	return;
