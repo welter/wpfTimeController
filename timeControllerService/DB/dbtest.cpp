@@ -220,19 +220,23 @@ void mainThread() {
 		logFile << "**************-----------------------**************" << endl;
 	}
 	if (logFileOpen) logFile.close();
+	
+
 	if (datFileOpen && canLog)
 	{
 		datFile << maxMoniteProc << endl;
-		for (int i = 0; i < maxMoniteProc; i++) {
-			datFile << moniteProcesses[i].ProcessInfo->processName << endl;
-			datFile << moniteProcesses[i].ProcessInfo->startTime<<endl;
-			datFile<< moniteProcesses[i].ProcessInfo->lastRunTime << endl;
-			datFile<< moniteProcesses[i].ProcessInfo->duration << endl;
-			datFile << moniteProcesses[i].ProcessInfo->curDuration << endl;
-			datFile<< moniteProcesses[i].ProcessInfo->runTimes << endl;
-			datFile<< moniteProcesses[i].ProcessInfo->isRunnig << endl;
-			datFile<< moniteProcesses[i].ProcessInfo->isTerminate << endl;
+		processes* pointer=moniteProcesses;
+		if (pointer) {
+			datFile << pointer->ProcessInfo->processName << endl;
+			datFile << pointer->ProcessInfo->startTime<<endl;
+			datFile<< pointer->ProcessInfo->lastRunTime << endl;
+			datFile<< pointer->ProcessInfo->duration << endl;
+			datFile << pointer->ProcessInfo->curDuration << endl;
+			datFile<< pointer->ProcessInfo->runTimes << endl;
+			datFile<< pointer->ProcessInfo->isRunnig << endl;
+			datFile<< pointer->ProcessInfo->isTerminate << endl;
 			datFile << endl;
+			pointer = pointer->next;
 		}
 	}
 	if (datFileOpen) datFile.close();
