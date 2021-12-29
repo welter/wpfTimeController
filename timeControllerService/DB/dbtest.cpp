@@ -194,7 +194,7 @@ BOOL EnableDebugPrivilege()
 	return fOk;
 }
 
-void mainThread() {
+void logThread() {
 	time_t now = time(0);
 	char* dt = ctime(&now);
 	string s = logFileName + ".log";
@@ -227,6 +227,7 @@ void mainThread() {
 		datFile << maxMoniteProc << endl;
 		processes* pointer=moniteProcesses;
 		if (pointer) {
+			datFile << endl;
 			datFile << pointer->ProcessInfo->processName << endl;
 			datFile << pointer->ProcessInfo->startTime<<endl;
 			datFile<< pointer->ProcessInfo->lastRunTime << endl;
@@ -235,7 +236,7 @@ void mainThread() {
 			datFile<< pointer->ProcessInfo->runTimes << endl;
 			datFile<< pointer->ProcessInfo->isRunnig << endl;
 			datFile<< pointer->ProcessInfo->isTerminate << endl;
-			datFile << endl;
+			datFile <<"**!!**!!**!!"<< endl;
 			pointer = pointer->next;
 		}
 	}
@@ -663,11 +664,11 @@ int main(void)
 
 	WindowsTimer timer1, timer2;
 	timer1.setCallback(moniteThread);
-	timer2.setCallback(mainThread);
+	timer2.setCallback(logThread);
 	timer1.start(moniteInterval, true);
 	timer2.start(10000, true);
 	//moniteThread();//仅一次性调用测试
-	//mainThread();//仅一次性调用测试
+	//logThread();//仅一次性调用测试
 	OutputDebugString("hello");
 	while (true)
 	{
