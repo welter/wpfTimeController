@@ -3,6 +3,7 @@
 #include "common.h"
 #include <conio.h>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <Psapi.h>
 #pragma comment(lib,"Psapi.lib")
@@ -79,7 +80,7 @@ struct processInfo {
 	//time_t timeAfterPrevRun;
 	int runTimes;
 	bool isRunnig;
-	bool isTerminate;
+	byte resetMode;
 };
 struct processes {
 	struct processInfo* ProcessInfo;
@@ -173,6 +174,42 @@ DWORD getProcessID(byte* const processIDGroup, byte& num, byte count)
 		return 0;
 	}
 }
+
+
+const byte rsNone = 0;
+const byte rsAll =1;
+const byte rsRuntimes = 2;
+const byte rsDuration = 4;
+const byte rsCurDuration = 8;
+const byte rsTerminate = 16;
+
+void resetProc(processInfo* proc,byte mode)
+{
+	if (proc) {
+		if (mode == rsAll)
+		{
+			proc->resetMode = rsNone;
+			proc->runTimes = 0;
+			//(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
+			//(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
+			//(**ptrNodeProcess).ProcessInfo->processes->next = nullptr;
+			//(**ptrNodeProcess).ProcessInfo->timeAfterPrevRun = 0;
+			proc->lastRunTime = -1;
+			proc->duration = 0;
+			proc->curDuration = 0;
+		}
+		if(mode==rsRuntimes)
+			proc->runTimes = 0;
+		if (mode == rsDuration)
+			proc->duration = 0;
+		if (mode == rsCurDuration)
+			proc->curDuration = 0;
+		if (mode == rsTerminate)
+			proc->resetMode = rsNone;
+		}
+	}
+
+
 BOOL EnableDebugPrivilege()
 
 {
@@ -226,16 +263,16 @@ void logThread() {
 	{
 		datFile << maxMoniteProc << endl;
 		processes* pointer=moniteProcesses;
-		if (pointer) {
+		if (pointer && pointer->ProcessInfo) {
 			datFile << endl;
-			datFile << pointer->ProcessInfo->processName << endl;
-			datFile << pointer->ProcessInfo->startTime<<endl;
-			datFile<< pointer->ProcessInfo->lastRunTime << endl;
-			datFile<< pointer->ProcessInfo->duration << endl;
-			datFile << pointer->ProcessInfo->curDuration << endl;
-			datFile<< pointer->ProcessInfo->runTimes << endl;
-			datFile<< pointer->ProcessInfo->isRunnig << endl;
-			datFile<< pointer->ProcessInfo->isTerminate << endl;
+			datFile<<setw(255) << pointer->ProcessInfo->processName << endl;
+			datFile <<setw(8)<< pointer->ProcessInfo->startTime<<endl;
+			datFile << setw(8) << pointer->ProcessInfo->lastRunTime << endl;
+			datFile << setw(8) << pointer->ProcessInfo->duration << endl;
+			datFile << setw(8) << pointer->ProcessInfo->curDuration << endl;
+			datFile << setw(8) << pointer->ProcessInfo->runTimes << endl;
+			datFile << setw(1) << pointer->ProcessInfo->isRunnig << endl;
+			datFile << setw(1) << pointer->ProcessInfo->resetMode << endl;
 			datFile <<"**!!**!!**!!"<< endl;
 			pointer = pointer->next;
 		}
@@ -253,7 +290,7 @@ void moniteThread() {
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
 		(*pointer).ProcessInfo->isRunnig = false;
-		(*pointer).ProcessInfo->isTerminate = false;
+		(*pointer).ProcessInfo->resetMode = rsNone;
 		delete[](*pointer).ProcessInfo->processesID;
 		(*pointer).ProcessInfo->processesID = new byte[32];
 		(*pointer).ProcessInfo->ptrLastProcID = (*pointer).ProcessInfo->processesID;
@@ -408,7 +445,7 @@ void moniteThread() {
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->resetMode |= rsTerminate;
 		scanPtr = (*scanPtr).next;
 	}
 	//判断是否超过每天运行的次数
@@ -416,7 +453,7 @@ void moniteThread() {
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->resetMode |= rsTerminate;
 		scanPtr = (*scanPtr).next;
 	}
 	//判断每两次运行间隔是否超过规定时间
@@ -424,7 +461,7 @@ void moniteThread() {
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->resetMode |= rsTerminate;
 		scanPtr = (*scanPtr).next;
 	}
 	//判断每次运行持续是否超过规定时间
@@ -432,7 +469,7 @@ void moniteThread() {
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->isTerminate |= true;
+		if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->resetMode |= rsCurDuration|rsTerminate;
 		scanPtr = (*scanPtr).next;
 	}
 	//判断是否在禁止的时间段运行
@@ -440,7 +477,7 @@ void moniteThread() {
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->resetMode |= rsTerminate;
 		scanPtr = (*scanPtr).next;
 	}
 	//判断每天总共运行时长是否超过规定时间
@@ -448,7 +485,7 @@ void moniteThread() {
 	while (scanPtr)
 	{
 		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->isTerminate |= true;
+		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->resetMode |= rsTerminate;
 		scanPtr = (*scanPtr).next;
 	}
 
@@ -479,7 +516,7 @@ void moniteThread() {
 	pointer = moniteProcesses;
 	cout << "checkpoint 1" << endl;
 	while (pointer) {
-		//if ((*pointer).ProcessInfo->isTerminate)
+		//if ((*pointer).ProcessInfo->resetMode)
 
 		//测试
 		if ((*pointer).ProcessInfo->processName == "msedge.exe")
@@ -520,7 +557,8 @@ void moniteThread() {
 					CloseHandle(handle);
 				}
 			}
-
+			resetProc(pointer->ProcessInfo,pointer->ProcessInfo->resetMode);
+			//pointer->ProcessInfo->resetMode = false;
 		}
 		pointer = (*pointer).next;
 	}
@@ -658,10 +696,37 @@ int main(void)
 			printf("error adding file: %s\n", zip_strerror(archive));
 		}
 		if (zip_close(archive) == 0) DeleteFile(newName.c_str());
+		//CloseHandle(fh);
 	}
 	else	zip_close(archive);
 
-
+	string s = procInfoDatFileName + ".dat";
+	fstream datFile(s, ios::in);
+	int a = GetLastError();
+	processInfo* p;
+	if (datFile.is_open()) {
+		int i;
+		datFile>>i;
+		string s;
+		for (int j = 0; j < i; j++) 
+		{
+			getline(datFile,s);
+			datFile >> setw(255) >> s;
+			p = findMoniteProc(s);
+			if (p) {
+				p->processName =s;
+				datFile >> setw(8) >> p->startTime;
+				datFile >> setw(8) >> p->lastRunTime;
+				datFile >> setw(8) >> p->duration;
+				datFile >> setw(8) >> p->curDuration;
+				datFile >> setw(8) >> p->runTimes;
+				datFile >> setw(1) >> p->isRunnig;
+				datFile >> setw(1) >> p->resetMode;
+				while (s!="" && s != "**!!**!!**!!") datFile >> s;
+			}
+		}
+		datFile.close();
+	}
 	WindowsTimer timer1, timer2;
 	timer1.setCallback(moniteThread);
 	timer2.setCallback(logThread);
