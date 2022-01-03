@@ -238,7 +238,7 @@ void logThread() {
 	ofstream logFile(s, ios::app);
 	bool logFileOpen = logFile.is_open();
 	s = procInfoDatFileName + ".dat";
-	ofstream datFile(s, ios::trunc);
+	ofstream datFile(s, ios::trunc|ios::binary);
 	bool datFileOpen = datFile.is_open();
 	int a = GetLastError();
 	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
@@ -265,15 +265,23 @@ void logThread() {
 		processes* pointer=moniteProcesses;
 		if (pointer && pointer->ProcessInfo) {
 			datFile << endl;
-			datFile<<setw(255) << pointer->ProcessInfo->processName << endl;
-			datFile <<setw(8)<< pointer->ProcessInfo->startTime<<endl;
-			datFile << setw(8) << pointer->ProcessInfo->lastRunTime << endl;
-			datFile << setw(8) << pointer->ProcessInfo->duration << endl;
-			datFile << setw(8) << pointer->ProcessInfo->curDuration << endl;
-			datFile << setw(8) << pointer->ProcessInfo->runTimes << endl;
-			datFile << setw(1) << pointer->ProcessInfo->isRunnig << endl;
-			datFile << setw(1) << pointer->ProcessInfo->resetMode << endl;
-			datFile <<"**!!**!!**!!"<< endl;
+			datFile.write(pointer->ProcessInfo->processName.c_str(), 255);
+				//datFile<<setw(255) << pointer->ProcessInfo->processName << endl;
+			datFile.write((char*) &(pointer->ProcessInfo->startTime), 8);
+			//datFile <<setw(8)<< pointer->ProcessInfo->startTime<<endl;
+			datFile.write((char*)&(pointer->ProcessInfo->lastRunTime), 8);
+			//datFile << setw(8) << pointer->ProcessInfo->lastRunTime << endl;
+			datFile.write((char*)&(pointer->ProcessInfo->duration), 8);
+			//datFile << setw(8) << pointer->ProcessInfo->duration << endl;
+			datFile.write((char*)&(pointer->ProcessInfo->curDuration), 8);
+			//datFile << setw(8) << pointer->ProcessInfo->curDuration << endl;
+			datFile.write((char*)&(pointer->ProcessInfo->runTimes), 8);
+			//datFile << setw(8) << pointer->ProcessInfo->runTimes << endl;
+			datFile.write((char*)&(pointer->ProcessInfo->isRunnig), 1);
+			//datFile << setw(1) << pointer->ProcessInfo->isRunnig << endl;
+			datFile.write((char*)&(pointer->ProcessInfo->resetMode), 1);
+			//datFile << setw(1) << pointer->ProcessInfo->resetMode << endl;
+			datFile <<"\0**!!**!!**!!\0"<< endl;
 			pointer = pointer->next;
 		}
 	}
@@ -706,23 +714,35 @@ int main(void)
 	processInfo* p;
 	if (datFile.is_open()) {
 		int i;
-		datFile>>i;
-		string s;
+		char s[256] = {0};
+		char s2[9] = { 0 };
+		char s3[2] = { 0 };
+		datFile.getline(s, 255, '\n');
+		i = stoi(s);
+		
 		for (int j = 0; j < i; j++) 
 		{
-			getline(datFile,s);
-			datFile >> setw(255) >> s;
-			p = findMoniteProc(s);
+			datFile.getline(s,255,'\n');
+			datFile.read(s,255);
+			p = findMoniteProc((string) s);
 			if (p) {
-				p->processName =s;
-				datFile >> setw(8) >> p->startTime;
-				datFile >> setw(8) >> p->lastRunTime;
-				datFile >> setw(8) >> p->duration;
-				datFile >> setw(8) >> p->curDuration;
-				datFile >> setw(8) >> p->runTimes;
-				datFile >> setw(1) >> p->isRunnig;
-				datFile >> setw(1) >> p->resetMode;
-				while (s!="" && s != "**!!**!!**!!") datFile >> s;
+				p->processName =s;				
+				datFile.read(s2,8);
+				p->startTime=stod(s2);
+				datFile.read(s2,8);
+				p->lastRunTime=stod(s2);
+				datFile.read(s2,8);
+				p->duration=stod(s2);
+				datFile.read(s2,8);
+				p->curDuration=stod(s2);
+				datFile.read(s2,8);
+				p->runTimes=stod(s2);
+				datFile.read(s3,1);
+                p->isRunnig=stoi(s3);
+				datFile.read(s3,1);
+				p->resetMode=stoi(s3);
+				while (s != "" && s != "**!!**!!**!!")
+					datFile.read(s, '\n');
 			}
 		}
 		datFile.close();
