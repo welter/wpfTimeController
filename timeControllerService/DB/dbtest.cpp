@@ -281,7 +281,7 @@ void logThread() {
 			//datFile << setw(1) << pointer->ProcessInfo->isRunnig << endl;
 			datFile.write((char*)&(pointer->ProcessInfo->resetMode), 1);
 			//datFile << setw(1) << pointer->ProcessInfo->resetMode << endl;
-			datFile <<"\0**!!**!!**!!\0"<< endl;
+			datFile.write("**!!**!!**!!\n",13);
 			pointer = pointer->next;
 		}
 	}
@@ -715,34 +715,41 @@ int main(void)
 	if (datFile.is_open()) {
 		int i;
 		char s[256] = {0};
-		char s2[9] = { 0 };
-		char s3[2] = { 0 };
+		char s2[8] = { 0 };
+		char s3[1] = { 0 };
 		datFile.getline(s, 255, '\n');
 		i = stoi(s);
-		
+		long long d = 0;
+		byte b = 0;
+		long long * dp = &d;
+		byte* bp = &b;
 		for (int j = 0; j < i; j++) 
 		{
 			datFile.getline(s,255,'\n');
 			datFile.read(s,255);
+			s[255] = '\0';
 			p = findMoniteProc((string) s);
 			if (p) {
 				p->processName =s;				
-				datFile.read(s2,8);
-				p->startTime=stod(s2);
-				datFile.read(s2,8);
-				p->lastRunTime=stod(s2);
-				datFile.read(s2,8);
-				p->duration=stod(s2);
-				datFile.read(s2,8);
-				p->curDuration=stod(s2);
-				datFile.read(s2,8);
-				p->runTimes=stod(s2);
-				datFile.read(s3,1);
-                p->isRunnig=stoi(s3);
-				datFile.read(s3,1);
-				p->resetMode=stoi(s3);
-				while (s != "" && s != "**!!**!!**!!")
-					datFile.read(s, '\n');
+				datFile.read((char*)&d,8);
+				p->startTime= d;
+				datFile.read((char*)&d, 8);
+				p->lastRunTime=d;
+				datFile.read((char*)&d, 8);
+				p->duration= d;
+				datFile.read((char*)&d, 8);
+				p->curDuration= d;
+				datFile.read((char*)&d, 8);
+				p->runTimes= d;
+				datFile.read((char*)&b, 1);
+                p->isRunnig= b;
+				datFile.read((char*)&b, 1);
+				p->resetMode= b;
+				while (strlen(s) != 0 && strcmp(s , "**!!**!!**!!"))
+				{
+					datFile.getline(s, 255);
+					s[255] = '\0';
+				}
 			}
 		}
 		datFile.close();
