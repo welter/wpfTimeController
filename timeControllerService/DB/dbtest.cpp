@@ -291,6 +291,9 @@ void logThread() {
 	return;
 }
 
+DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
+	return 0;
+}
 
 void moniteThread() {
 
@@ -762,6 +765,40 @@ int main(void)
 	//moniteThread();//仅一次性调用测试
 	//logThread();//仅一次性调用测试
 	OutputDebugString("hello");
+
+	//PMYDATA pDataArray;
+	DWORD   dwThreadIdArray;
+	HANDLE  hThreadArray;
+
+		//pDataArray = (PMYDATA)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+		//	sizeof(MYDATA));
+
+		//if (pDataArray== NULL)
+		//{
+		//	ExitProcess(2);
+		//}
+
+		// Generate unique data for each thread to work with.
+
+		//pDataArray->val1 = 1;
+		//pDataArray->val2 = 101;
+
+		// Create the thread to begin execution on its own.
+
+		hThreadArray = CreateThread(
+			NULL,                   // default security attributes
+			0,                      // use default stack size  
+			mainThread,       // thread function name
+			NULL,          // argument to thread function 
+			0,                      // use default creation flags 
+			&dwThreadIdArray);   // returns the thread identifier 
+
+		if (hThreadArray == NULL)
+		{
+			//ErrorHandler(TEXT("CreateThread"));
+			ExitProcess(3);
+		}
+
 	while (true)
 	{
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
