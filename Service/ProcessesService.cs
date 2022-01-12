@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Diagnostics;
-using System.Text;
-using System.Threading.Tasks;
+using System.Linq;
 using wpfTimeController.Model;
 namespace wpfTimeController.Service
 {
     class ProcessesService : IProcessesService
     {
-        private List <ProcessInfo> _P1=new List<ProcessInfo>();
+        private List<ProcessInfo> _P1 = new List<ProcessInfo>();
         public ProcessInfo GetProcess(string name)
         {
             return Array.Find(_P1.ToArray(), x => x.ProcessName == name);
@@ -40,7 +38,7 @@ namespace wpfTimeController.Service
                 {
                     var p = new ProcessInfo();
                     p.ProcessName = fp.ProcessName;
-                    p.PID = (uint) fp.Id;
+                    p.PID = (uint)fp.Id;
                     p.ProcessTitle = fp.MainWindowTitle;
                     //p.ProcessCpusage=fp.
                     _P1.Add(p);

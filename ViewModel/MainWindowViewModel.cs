@@ -1,14 +1,9 @@
 ﻿using Microsoft.Practices.Prism.ViewModel;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using wpfTimeController.Model;
 using wpfTimeController.Service;
 namespace wpfTimeController.ViewModel
 {
-    class MainWindowViewModel: NotificationObject
+    class MainWindowViewModel : NotificationObject
     {
         private List<ProcessItemViewModel> activeProcessList;
         public List<ProcessItemViewModel> ActiveProcessList
@@ -28,7 +23,7 @@ namespace wpfTimeController.ViewModel
         private void LoadActiveProcesses()
         {
             IProcessesService i = new ProcessesService();
-            var PiL=i.GetAllProcess();
+            var PiL = i.GetAllProcess();
             ActiveProcessList = new List<ProcessItemViewModel>();
             foreach (var Pi in PiL)
             {

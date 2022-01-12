@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <WinUser.h>
 #include <TlHelp32.h>
 #include "common.h"
 #include <conio.h>
@@ -292,7 +293,24 @@ void logThread() {
 }
 
 DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
-	return 0;
+	MSG msg;
+	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);//使线程产生了一个消息队列
+	//if (!SetEvent(hStartEvent))//激活主线程的等待事件，让主线程给本线程发送消息
+	//{
+	//	printf("set event error,%d\n", GetLastError());
+	//	return 1;
+	//}
+	while (true)
+	{
+		if (GetMessage(&msg, 0, 0, 0)) //没有消息会主动阻塞等待，直到收到消息
+		{
+			switch (msg.message)
+			{
+			case 1:
+					break;
+			}
+		}
+	}
 }
 
 void moniteThread() {
