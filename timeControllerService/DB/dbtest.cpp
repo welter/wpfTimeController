@@ -15,6 +15,7 @@
 #include <zip.h>
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
+#define WM_TIMECONTROLLER WM_USER+1
 
 const string logFileName = "test";
 const string procInfoDatFileName = "procinfo";
@@ -306,8 +307,9 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 		{
 			switch (msg.message)
 			{
-			case 1:
-					break;
+			case WM_TIMECONTROLLER:
+				printf("okk");
+				break;
 			}
 		}
 	}
@@ -821,5 +823,12 @@ int main(void)
 	{
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
 			return -1;
+		if (KEYDOWN('a'))
+		{
+			MSG msg;
+			msg.message = WM_TIMECONTROLLER;
+			WPARAM wParam=NULL;
+			LPARAM lParam=NULL;
+			PostThreadMessage(dwThreadIdArray, WM_TIMECONTROLLER, wParam, lParam);
 	}
 }
