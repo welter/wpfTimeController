@@ -13,9 +13,10 @@
 #include "../Timer/Timer.h"
 #include "DBRuleService.h"
 #include <zip.h>
+#include <tchar.h>
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
-#define WM_TIMECONTROLLER WM_USER+1
+const int WM_TIMECONTROLLER = RegisterWindowMessage(_T("TIMECONTROLLER"));
 
 const string logFileName = "test";
 const string procInfoDatFileName = "procinfo";
@@ -305,14 +306,14 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 	{
 		if (GetMessage(&msg, 0, 0, 0)) //没有消息会主动阻塞等待，直到收到消息
 		{
-			switch (msg.message)
+			if (msg.message==WM_TIMECONTROLLER)
 			{
-			case WM_TIMECONTROLLER:
 				printf("okk");
-				break;
+				//break;
 			}
 		}
 	}
+	return 1;
 }
 
 void moniteThread() {
@@ -823,12 +824,15 @@ int main(void)
 	{
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
 			return -1;
-		if (KEYDOWN('a'))
+		if (KEYDOWN(0x41))
 		{
 			MSG msg;
 			msg.message = WM_TIMECONTROLLER;
-			WPARAM wParam=NULL;
-			LPARAM lParam=NULL;
+			WPARAM wParam = NULL;
+			LPARAM lParam = NULL;
+			
 			PostThreadMessage(dwThreadIdArray, WM_TIMECONTROLLER, wParam, lParam);
+			printf("postMessage\n");
+		}
 	}
 }
