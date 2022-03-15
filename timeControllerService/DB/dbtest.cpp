@@ -787,8 +787,8 @@ int main(void)
 	OutputDebugString("hello");
 
 	//PMYDATA pDataArray;
-	DWORD   dwThreadIdArray;
-	HANDLE  hThreadArray;
+	DWORD   threadId;
+	HANDLE  threadHandle;
 
 		//pDataArray = (PMYDATA)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
 		//	sizeof(MYDATA));
@@ -805,15 +805,15 @@ int main(void)
 
 		// Create the thread to begin execution on its own.
 
-		hThreadArray = CreateThread(
+	    threadHandle = CreateThread(
 			NULL,                   // default security attributes
 			0,                      // use default stack size  
 			mainThread,       // thread function name
 			NULL,          // argument to thread function 
 			0,                      // use default creation flags 
-			&dwThreadIdArray);   // returns the thread identifier 
+			&threadId);   // returns the thread identifier 
 
-		if (hThreadArray == NULL)
+		if (threadHandle == NULL)
 		{
 			//ErrorHandler(TEXT("CreateThread"));
 			ExitProcess(3);
@@ -829,6 +829,6 @@ int main(void)
 			msg.message = WM_TIMECONTROLLER;
 			WPARAM wParam=NULL;
 			LPARAM lParam=NULL;
-			PostThreadMessage(dwThreadIdArray, WM_TIMECONTROLLER, wParam, lParam);
+			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
 	}
 }
