@@ -822,14 +822,39 @@ int main(void)
 
 	while (true)
 	{
+		bool isIdle = true;
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
 			return -1;
-		if (KEYDOWN(0x41))
+		if (isIdle && KEYDOWN(0x41))  //按“A”键
 		{
+			isIdle = false;
 			MSG msg;
 			msg.message = WM_TIMECONTROLLER;
-			WPARAM wParam=NULL;
-			LPARAM lParam=NULL;
+			WPARAM wParam = NULL;
+			LPARAM lParam = NULL;
 			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			isIdle = true;
+		}
+		if (isIdle && KEYDOWN(0x42))  //按“B”键
+		{
+			isIdle = false;
+			MSG msg;
+			msg.message = WM_TIMECONTROLLER;
+			WPARAM wParam = NULL;
+			LPARAM lParam = NULL;
+			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			isIdle = true;
+		}
+		if (isIdle && KEYDOWN(0x43))  //按“C”键
+		{
+			isIdle = false;
+			MSG msg;
+			msg.message = WM_TIMECONTROLLER;
+			WPARAM wParam = NULL;
+			LPARAM lParam = NULL;
+			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			isIdle = true;
+		}
+		::Sleep(1000);
 	}
 }
