@@ -308,6 +308,13 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 		{
 			if (msg.message==WM_TIMECONTROLLER)
 			{
+				switch (msg.wParam)
+				{
+				case WM_TIMERCONTROLER_STOP:
+					break;
+				case 2:
+					break;
+				}
 				printf("okk");
 				//break;
 			}
@@ -691,7 +698,7 @@ int main(void)
 	}
 	//for (int i = 0; i < runModeCount; i++)
 	//	if (curNodeByRule[i]) delete curNodeByRule[i];
-	//if (curNodeProcess) delete curNodeProcess;
+	//if (curNodeProcess) delete curNodeProcess; Äã
 	delete* rules;
 	delete rules;
 	time_t now = time(0);

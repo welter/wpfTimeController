@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+const unsigned char WM_TIMERCONTROLER_STOP = 1;
 namespace DB {
     const unsigned char rmSpecifiedTime = 0b00000001;//在指定的时间段运行
     const unsigned char rmTimes = 0b00000010;    //每天运行的次数
