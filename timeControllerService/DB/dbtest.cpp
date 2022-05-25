@@ -310,9 +310,19 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 			{
 				switch (msg.wParam)
 				{
-				case WM_TIMERCONTROLER_STOP:
+				case MP_TIMERCONTROLER_STOP:
 					break;
-				case 2:
+				case MP_TIMERCONTROLER_RESUME:
+					break;
+				case MP_TIMERCONTROLER_RESET:
+					break;
+				case MP_TIMERCONTROLER_TERMINATEPROC:
+					break;
+				case MP_TIMERCONTROLER_LOGON:
+					break;
+				case MP_TIMERCONTROLER_LOGOFF:
+					break;
+				case MP_TIMERCONTROLER_RELOAD:
 					break;
 				}
 				printf("okk");
