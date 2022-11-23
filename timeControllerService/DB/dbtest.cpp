@@ -90,7 +90,9 @@ struct processes {
 	struct processes* next;
 };
 
-struct processesByRuleList {
+//按运行模式分类的需监视进程集合
+struct processesByRuleList { 
+	int runMode;  //运行模式
 	struct processInfo* ProcessInfo;
 	struct processesByRuleList* next;
 };
@@ -100,7 +102,7 @@ struct threadInfo {
 	int ownerProcessID;
 	threadInfo* next;
 };
-static struct processes* moniteProcesses;// = new struct processes;
+static struct processes* moniteProcesses;// = new struct processes;  //需监视的进程
 static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
 static struct struLogData* logData = new struLogData[maxLogDataLen];
@@ -689,6 +691,7 @@ int main(void)
 			if ((**ptrNodeProcess).ProcessInfo->runMode & (0x1 << j))
 			{
 				(*tempNodeByRule).ProcessInfo = (**ptrNodeProcess).ProcessInfo;
+				(*tempNodeByRule).runMode = j;
 				//*(curNodeByRule[j]) = temp;
 				if (ptrNodeByRule[j])
 				{
