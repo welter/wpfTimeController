@@ -310,19 +310,19 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 			{
 				switch (msg.wParam)
 				{
-				case MP_TIMERCONTROLER_STOP:
+				case MP_TIMERCONTROLER_STOP:  //停止TimerController
 					break;
-				case MP_TIMERCONTROLER_RESUME:
+				case MP_TIMERCONTROLER_RESUME:  //继续TimerController
 					break;
-				case MP_TIMERCONTROLER_RESET:
+				case MP_TIMERCONTROLER_RESET:  //重置TimerController
 					break;
-				case MP_TIMERCONTROLER_TERMINATEPROC:
+				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
 					break;
-				case MP_TIMERCONTROLER_LOGON:
+				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
 					break;
-				case MP_TIMERCONTROLER_LOGOFF:
+				case MP_TIMERCONTROLER_LOGOFF:  //登出
 					break;
-				case MP_TIMERCONTROLER_RELOAD:
+				case MP_TIMERCONTROLER_LOADSETTING:  //调入设置
 					break;
 				}
 				printf("okk");

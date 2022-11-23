@@ -6,7 +6,7 @@ const unsigned char MP_TIMERCONTROLER_RESET = 3;
 const unsigned char MP_TIMERCONTROLER_TERMINATEPROC = 4;
 const unsigned char MP_TIMERCONTROLER_LOGON = 5;
 const unsigned char MP_TIMERCONTROLER_LOGOFF = 6;
-const unsigned char MP_TIMERCONTROLER_RELOAD = 7;
+const unsigned char MP_TIMERCONTROLER_LOADSETTING = 7;
 namespace DB {
     const unsigned char rmSpecifiedTime = 0b00000001;//在指定的时间段运行
     const unsigned char rmTimes = 0b00000010;    //每天运行的次数
