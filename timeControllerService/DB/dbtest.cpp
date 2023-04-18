@@ -27,6 +27,11 @@ const int runModeCount = 6;
 const int maxLogDataLen = 6000;
 const int logDateLong = 1;
 
+//服务状态
+struct struServiceState {
+	bool bRunning;  //是否运行
+};
+static struServiceState* serviceState=new struServiceState;
 //同名进程集结构
 struct processesID {
 	DWORD processID; //进程id
@@ -45,9 +50,13 @@ struct struLogData {
 	DWORD th32ParentProcessID;
 	DWORD th32ProcessID;
 };
+
+//进程信息结构
 struct processInfo {
 
 	DWORD   id;//唯一主ID
+
+
 	//从系统实时获取
 	DWORD   size;
 	DWORD   usage;
@@ -58,6 +67,8 @@ struct processInfo {
 	DWORD   parentProcessID;    // this process's parent process
 	LONG    priClassBase;         // Base priority of process's threads
 	DWORD   flags;
+
+
 	//从规则库中获取
 	int dbID;  //规则库ID
 	int runMode;
@@ -72,6 +83,8 @@ struct processInfo {
 	string  processName;
 	time_t startTime;
 	time_t endTime;
+
+
 	//根据系统信息运算获取
 	//struct processesID* processes;
 	byte* processesID = new byte[32]{ 0 };
@@ -107,9 +120,11 @@ static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
 static struct struLogData* logData = new struLogData[maxLogDataLen];
 static int logDataLen = 0;
+static WindowsTimer timerMoniteTimer, timerlogTimer;
 
-
-
+//以进程名在监控队列中查找进程
+//参数：proceName，进程名
+//返回：找到的进程在监控队列中指针，若没找到返回空指针。
 struct processInfo* findMoniteProc(string procName) {
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
@@ -122,6 +137,8 @@ struct processInfo* findMoniteProc(string procName) {
 
 
 // WCHAR 转换为 std::string
+//参数：pwszSrc,WCHAR类型数值
+//返回：相应的std::string类型数值
 string WCHAR2String(LPCWSTR pwszSrc)
 {
 	int nLen = WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, NULL, 0, NULL, NULL);
@@ -180,13 +197,13 @@ DWORD getProcessID(byte* const processIDGroup, byte& num, byte count)
 	}
 }
 
-
-const byte rsNone = 0;
-const byte rsAll =1;
-const byte rsRuntimes = 2;
-const byte rsDuration = 4;
-const byte rsCurDuration = 8;
-const byte rsTerminate = 16;
+//重置方式
+const byte rsNone = 0;  //不重置
+const byte rsAll =1;  //重置全部
+const byte rsRuntimes = 2;  //重置运行次数
+const byte rsDuration = 4;  //重置总运行持续时间
+const byte rsCurDuration = 8;  //重置本次持续时间
+const byte rsTerminate = 16;  //退出
 
 void resetProc(processInfo* proc,byte mode)
 {
@@ -236,6 +253,7 @@ BOOL EnableDebugPrivilege()
 	return fOk;
 }
 
+//日记记录线程
 void logThread() {
 	time_t now = time(0);
 	char* dt = ctime(&now);
@@ -313,12 +331,16 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 				switch (msg.wParam)
 				{
 				case MP_TIMERCONTROLER_STOP:  //停止TimerController
+					serviceState->bRunning = false;
 					break;
 				case MP_TIMERCONTROLER_RESUME:  //继续TimerController
+					serviceState->bRunning = true;
 					break;
 				case MP_TIMERCONTROLER_RESET:  //重置TimerController
+					initService();
 					break;
 				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
+					msg.lParam
 					break;
 				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
 					break;
@@ -335,293 +357,349 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 	return 1;
 }
 
-void moniteThread() {
+//枚举指定PID进程拥有的线程
+//参数：dwOwnerPID进程PID
+//返回: byte* ptrThID,拥有的线程ID数组
+vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
+{
+	vector <DWORD> result;
+	
+	HANDLE hThreadSnap = INVALID_HANDLE_VALUE;
+	THREADENTRY32 te32;
 
-	//将被监控程序默认为未运行、不需停止；清空processid；
-	struct processes* pointer = moniteProcesses;
-	while (pointer) {
-		(*pointer).ProcessInfo->isRunnig = false;
-		(*pointer).ProcessInfo->resetMode = rsNone;
-		delete[](*pointer).ProcessInfo->processesID;
-		(*pointer).ProcessInfo->processesID = new byte[32];
-		(*pointer).ProcessInfo->ptrLastProcID = (*pointer).ProcessInfo->processesID;
-		(*pointer).ProcessInfo->countOfProcessID = 0;
-		pointer = (*pointer).next;
-	}
-	time_t now = time(0);
-	char* dt = ctime(&now);
-	PROCESSENTRY32 pe32;
-	// 在使用这个结构之前，先设置它的大小
-	pe32.dwSize = sizeof(pe32);
+	// Take a snapshot of all running threads  
+	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnap == INVALID_HANDLE_VALUE)
+		return(FALSE);
 
-	// 给系统内的所有进程拍一个快照
-	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hProcessSnap == INVALID_HANDLE_VALUE)
+	// Fill in the size of the structure before using it. 
+	te32.dwSize = sizeof(THREADENTRY32);
+
+	// Retrieve information about the first thread,
+	// and exit if unsuccessful
+	if (!Thread32First(hThreadSnap, &te32))
 	{
-		printf(" CreateToolhelp32Snapshot调用失败！ \n");
-		return;
+		//printError(TEXT("Thread32First")); // show cause of failure
+		CloseHandle(hThreadSnap);          // clean the snapshot object
+		return(FALSE);
 	}
-	//能否记录log
-	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
-	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
-	if (canLog)
-		logDataLen = 0;
-	else
+
+	// Now walk the thread list of the system,
+	// and display information about each thread
+	// associated with the specified process
+	do
 	{
-		CloseHandle(hMutex);
-		hMutex = NULL;
-	}
-	// 遍历进程快照
-	BOOL bMore = ::Process32First(hProcessSnap, &pe32);
-	while (bMore)
-	{
-		if (canLog)
+		if (te32.th32OwnerProcessID == dwOwnerPID)
 		{
-			logData[logDataLen].cntThreads = pe32.cntThreads;
-			logData[logDataLen].cntUsage = pe32.cntUsage;
-			logData[logDataLen].dwFlags = pe32.dwFlags;
-			logData[logDataLen].dwSize = pe32.dwSize;
-			logData[logDataLen].pcPriClassBase = pe32.pcPriClassBase;
-			logData[logDataLen].szExeFile = pe32.szExeFile;
-			logData[logDataLen].th32DefaultHeapID = pe32.th32DefaultHeapID;
-			logData[logDataLen].th32ModuleID = pe32.th32ModuleID;
-			logData[logDataLen].th32ParentProcessID = pe32.th32ParentProcessID;
-			logData[logDataLen].th32ProcessID = pe32.th32ProcessID;
-			if (++logDataLen == maxLogDataLen) logDataLen = 0;
+			//_tprintf(TEXT("\n\n     THREAD ID      = 0x%08X"), te32.th32ThreadID);
+			//_tprintf(TEXT("\n     Base priority  = %d"), te32.tpBasePri);
+			//_tprintf(TEXT("\n     Delta priority = %d"), te32.tpDeltaPri);
+			//_tprintf(TEXT("\n"));
+			result.push_back(te32.th32ThreadID);
 		}
-		//判断是否被监控进程
-		struct processInfo* process = findMoniteProc(pe32.szExeFile);
-		if (process != NULL) {
-			cout << "finded" << endl;
-			//更新被监控进程实时信息
-			process->defaultHeapID = pe32.th32DefaultHeapID;
-			process->flags = pe32.dwFlags;
-			if (now - process->lastRunTime > intervalAsNextRun)
+	} while (Thread32Next(hThreadSnap, &te32));
+
+	CloseHandle(hThreadSnap);
+	return(result);
+}
+
+void moniteThread() {
+	if (serviceState->bRunning)
+	{
+		//将被监控程序信息默认为未运行、不需停止；清空processid；
+		struct processes* pointer = moniteProcesses;
+		while (pointer) {
+			(*pointer).ProcessInfo->isRunnig = false;
+			(*pointer).ProcessInfo->resetMode = rsNone;
+			delete[](*pointer).ProcessInfo->processesID;
+			(*pointer).ProcessInfo->processesID = new byte[32];
+			(*pointer).ProcessInfo->ptrLastProcID = (*pointer).ProcessInfo->processesID;
+			(*pointer).ProcessInfo->countOfProcessID = 0;
+			pointer = (*pointer).next;
+		}
+		time_t now = time(0);
+		char* dt = ctime(&now);
+		PROCESSENTRY32 pe32;
+		// 在使用这个结构之前，先设置它的大小
+		pe32.dwSize = sizeof(pe32);
+
+		// 给系统内的所有进程拍一个快照
+		HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (hProcessSnap == INVALID_HANDLE_VALUE)
+		{
+			printf(" CreateToolhelp32Snapshot调用失败！ \n");
+			return;
+		}
+		//能否记录log
+		HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+		BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+		if (canLog)
+			logDataLen = 0;
+		else
+		{
+			CloseHandle(hMutex);
+			hMutex = NULL;
+		}
+		// 遍历进程快照
+		BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+		while (bMore)
+		{
+			if (canLog)
 			{
-				process->runTimes += 1;
-				process->curDuration = 0;
+				logData[logDataLen].cntThreads = pe32.cntThreads;
+				logData[logDataLen].cntUsage = pe32.cntUsage;
+				logData[logDataLen].dwFlags = pe32.dwFlags;
+				logData[logDataLen].dwSize = pe32.dwSize;
+				logData[logDataLen].pcPriClassBase = pe32.pcPriClassBase;
+				logData[logDataLen].szExeFile = pe32.szExeFile;
+				logData[logDataLen].th32DefaultHeapID = pe32.th32DefaultHeapID;
+				logData[logDataLen].th32ModuleID = pe32.th32ModuleID;
+				logData[logDataLen].th32ParentProcessID = pe32.th32ParentProcessID;
+				logData[logDataLen].th32ProcessID = pe32.th32ProcessID;
+				if (++logDataLen == maxLogDataLen) logDataLen = 0;
 			}
-			process->lastRunTime = now;
-			process->moduleID = pe32.th32ModuleID;
-			process->parentProcessID = pe32.th32ParentProcessID;
-			process->priClassBase = pe32.pcPriClassBase;
-
-			/*process->processes->processID = pe32.th32ProcessID;
-			process->processes->processName = pe32.szExeFile;
-			process->processes->next = new struct processesID;
-			process->processes->next->processName = "---null";
-			process->processes->next->next = nullptr;*/
-
-			byte* p = (byte*)&(pe32.th32ProcessID);
-			byte c = process->countOfProcessID;
-			//char* p2 = strchr(process->processesID, '\0');
-			if ((c > 0) && process->ptrLastProcID >= ((byte*)(process->processesID) + ((((c - 1) >> 2) + 1) << 5)))
-			{
-				DWORD oldLength = c * 8;
-				//process->countOfProcessID += 32;
-				byte* newProcessesID = new byte[oldLength + 32];
-				if (memcpy(newProcessesID, process->processesID, oldLength))
+			//判断是否被监控进程
+			struct processInfo* process = findMoniteProc(pe32.szExeFile);
+			if (process != NULL) {
+				cout << "finded" << endl;
+				//更新被监控进程实时信息
+				process->defaultHeapID = pe32.th32DefaultHeapID;
+				process->flags = pe32.dwFlags;
+				if (now - process->lastRunTime > intervalAsNextRun)
 				{
-					DWORD oldOffset = process->ptrLastProcID - process->processesID;
-					delete[] process->processesID;
-					process->processesID = newProcessesID;
-					process->ptrLastProcID = process->processesID + oldOffset;
-
+					process->runTimes += 1;
+					process->curDuration = 0;
 				}
-				else;
+				process->lastRunTime = now;
+				process->moduleID = pe32.th32ModuleID;
+				process->parentProcessID = pe32.th32ParentProcessID;
+				process->priClassBase = pe32.pcPriClassBase;
+
+				/*process->processes->processID = pe32.th32ProcessID;
+				process->processes->processName = pe32.szExeFile;
+				process->processes->next = new struct processesID;
+				process->processes->next->processName = "---null";
+				process->processes->next->next = nullptr;*/
+
+
+				//记录该进程拥有的线程
+
+				vector <DWORD> p2;
+				p2 = ListProcessThreads(pe32.th32ProcessID);
+
+				byte* p = (byte*)&(pe32.th32ProcessID);
+				byte c = process->countOfProcessID;
+				//char* p2 = strchr(process->processesID, '\0');
+
+
+
+				//判断该进程拥有的线程数是否超过原保留空间（以8个线程为单位，满8个需申请新线程信息记录空间）
+				if ((c > 0) && process->ptrLastProcID >= ((byte*)(process->processesID) + ((((c - 1) >> 2) + 1) << 5)))
+				{
+					DWORD oldLength = c * 8;
+					//process->countOfProcessID += 32;
+					byte* newProcessesID = new byte[oldLength + 32];
+					if (memcpy(newProcessesID, process->processesID, oldLength))
+					{
+						DWORD oldOffset = process->ptrLastProcID - process->processesID;
+						delete[] process->processesID;
+						process->processesID = newProcessesID;
+						process->ptrLastProcID = process->processesID + oldOffset;
+
+					}
+					else;
+				}
+				*(process->ptrLastProcID) = p[0];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[1];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[2];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[3];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[4];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[5];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[6];
+				process->ptrLastProcID++;
+				*(process->ptrLastProcID) = p[7];
+				//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
+
+				printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
+				process->ptrLastProcID++;
+				process->countOfProcessID++;
+				process->duration += moniteInterval / 1000;
+				process->curDuration += moniteInterval / 1000;
+				process->size = pe32.dwSize;
+				process->threads = pe32.cntThreads;
+				process->usage = pe32.cntUsage;
+				//process->timeAfterPrevRun += moniteInterval/1000;
+				process->isRunnig = true;
 			}
-			*(process->ptrLastProcID) = p[0];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[1];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[2];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[3];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[4];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[5];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[6];
-			process->ptrLastProcID++;
-			*(process->ptrLastProcID) = p[7];
-			//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
+			//wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
 
-			printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
-			process->ptrLastProcID++;
-			process->countOfProcessID++;
-			process->duration += moniteInterval / 1000;
-			process->curDuration += moniteInterval / 1000;
-			process->size = pe32.dwSize;
-			process->threads = pe32.cntThreads;
-			process->usage = pe32.cntUsage;
-			//process->timeAfterPrevRun += moniteInterval/1000;
-			process->isRunnig = true;
+			//printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
+
+			bMore = ::Process32Next(hProcessSnap, &pe32);
 		}
-		//wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
-
-		//printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
-
-		bMore = ::Process32Next(hProcessSnap, &pe32);
-	}
-	if (hMutex) {
-		CloseHandle(hMutex);
-		hMutex = NULL;
-	}
-	// 释放snapshot对象
-	::CloseHandle(hProcessSnap);
-
-
-	//测试
-	processes* pointert = moniteProcesses;
-	for (int i = 0; i < maxMoniteProc; i++) {
-		if (pointert->ProcessInfo->processName == "msedge.exe") {
-			cout << "ProcessID2:  ";
-			byte* pp1 = pointert->ProcessInfo->processesID;
-			for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
-				printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //测试
-				pp1 += 8;
-			}
-			cout << endl;
+		if (hMutex) {
+			CloseHandle(hMutex);
+			hMutex = NULL;
 		}
-		pointert = pointert->next;
-	}
+		// 释放snapshot对象
+		::CloseHandle(hProcessSnap);
 
-	//测试结束
-
-	static struct processesByRuleList* scanPtr;
-	processInfo* pInfo;
-	//判断是否在指定的时间段运行
-	scanPtr = processesByRule[0];
-	while (scanPtr)
-	{
-		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->resetMode |= rsTerminate;
-		scanPtr = (*scanPtr).next;
-	}
-	//判断是否超过每天运行的次数
-	scanPtr = processesByRule[1];
-	while (scanPtr)
-	{
-		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->resetMode |= rsTerminate;
-		scanPtr = (*scanPtr).next;
-	}
-	//判断每两次运行间隔是否超过规定时间
-	scanPtr = processesByRule[2];
-	while (scanPtr)
-	{
-		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->resetMode |= rsTerminate;
-		scanPtr = (*scanPtr).next;
-	}
-	//判断每次运行持续是否超过规定时间
-	scanPtr = processesByRule[3];
-	while (scanPtr)
-	{
-		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->resetMode |= rsCurDuration|rsTerminate;
-		scanPtr = (*scanPtr).next;
-	}
-	//判断是否在禁止的时间段运行
-	scanPtr = processesByRule[4];
-	while (scanPtr)
-	{
-		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->resetMode |= rsTerminate;
-		scanPtr = (*scanPtr).next;
-	}
-	//判断每天总共运行时长是否超过规定时间
-	scanPtr = processesByRule[5];
-	while (scanPtr)
-	{
-		pInfo = (*scanPtr).ProcessInfo;
-		if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->resetMode |= rsTerminate;
-		scanPtr = (*scanPtr).next;
-	}
-
-	cout << "checkpoint 3" << endl;
-	//停止触及规定的进程
-
-	//HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
-	//THREADENTRY32   te32;
-	//hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-	//te32.dwSize = sizeof(THREADENTRY32);
-	//if (!Thread32First(hThreadSnap, &te32))
-	//{
-	//	int a = GetLastError();
-	//	CloseHandle(hThreadSnap);     // Must clean up the snapshot object!
-	//}
-	//else {
-
-	//	struct threadInfo* threadList = new struct threadInfo;
-	//	struct threadInfo** ptrThreadInfo = &threadList;
-	//	do
-	//	{
-	//		*ptrThreadInfo = new struct threadInfo;
-	//		(**ptrThreadInfo).ownerProcessID = te32.th32OwnerProcessID;
-	//		(**ptrThreadInfo).threadID = te32.th32ThreadID;
-	//		(**ptrThreadInfo).next = nullptr;
-	//		ptrThreadInfo = &(**ptrThreadInfo).next;
-	//	} while (::Thread32Next(hThreadSnap, &te32));
-	pointer = moniteProcesses;
-	cout << "checkpoint 1" << endl;
-	while (pointer) {
-		//if ((*pointer).ProcessInfo->resetMode)
 
 		//测试
-		if ((*pointer).ProcessInfo->processName == "msedge.exe")
-			//测试结束
-
-		{
-			//cout << "checkpoint4" << endl;
-			//int processid = (*pointer).ProcessInfo->processID;
-			//struct threadInfo* pointer2 = threadList;
-			//while (pointer2)
-			//{
-			//	cout << "checkpoint 2" << endl;
-			//	if ((*pointer2).ownerProcessID == processid)
-			//	{
-			//		HANDLE handle = OpenThread(THREAD_TERMINATE | THREAD_QUERY_INFORMATION, FALSE, (*pointer2).threadID);
-			//		BOOL bResult = TerminateThread(handle, 0);
-			//		cout << "Terminate thread result:" << bResult << "   error:" << GetLastError() << endl;
-			//		CloseHandle(handle);
-			//	}
-			//	pointer2 = (*pointer2).next;
-			//}
-			//struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
-			//while (processIDPointer && (*processIDPointer).processName != "---null")
-			DWORD id;
-			byte order = 0;
-			byte count = (*pointer).ProcessInfo->countOfProcessID;
-
-			while (id = getProcessID(pointer->ProcessInfo->processesID, order, count))
-			{
-				cout << "checkpoint 2" << endl;
-
-				HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, id);
-				if (handle != NULL)
-				{
-					//EnableDebugPrivilege();
-					BOOL bResult = TerminateProcess(handle, 0);
-					cout << "Terminate result:" << bResult << endl;
-					CloseHandle(handle);
+		processes* pointert = moniteProcesses;
+		for (int i = 0; i < maxMoniteProc; i++) {
+			if (pointert->ProcessInfo->processName == "msedge.exe") {
+				cout << "ProcessID2:  ";
+				byte* pp1 = pointert->ProcessInfo->processesID;
+				for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
+					printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //测试
+					pp1 += 8;
 				}
+				cout << endl;
 			}
-			resetProc(pointer->ProcessInfo,pointer->ProcessInfo->resetMode);
-			//pointer->ProcessInfo->resetMode = false;
+			pointert = pointert->next;
 		}
-		pointer = (*pointer).next;
-	}
-	//	}
-	std::cout << "test ok" << std::endl;
 
-	return;
+		//测试结束
+
+		static struct processesByRuleList* scanPtr;
+		processInfo* pInfo;
+		//判断是否在指定的时间段运行
+		scanPtr = processesByRule[0];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//判断是否超过每天运行的次数
+		scanPtr = processesByRule[1];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//判断每两次运行间隔是否超过规定时间
+		scanPtr = processesByRule[2];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//判断每次运行持续是否超过规定时间
+		scanPtr = processesByRule[3];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->resetMode |= rsCurDuration | rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//判断是否在禁止的时间段运行
+		scanPtr = processesByRule[4];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//判断每天总共运行时长是否超过规定时间
+		scanPtr = processesByRule[5];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+
+		cout << "checkpoint 3" << endl;
+		//停止触及规定的进程
+
+		//HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
+		//THREADENTRY32   te32;
+		//hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+		//te32.dwSize = sizeof(THREADENTRY32);
+		//if (!Thread32First(hThreadSnap, &te32))
+		//{
+		//	int a = GetLastError();
+		//	CloseHandle(hThreadSnap);     // Must clean up the snapshot object!
+		//}
+		//else {
+
+		//	struct threadInfo* threadList = new struct threadInfo;
+		//	struct threadInfo** ptrThreadInfo = &threadList;
+		//	do
+		//	{
+		//		*ptrThreadInfo = new struct threadInfo;
+		//		(**ptrThreadInfo).ownerProcessID = te32.th32OwnerProcessID;
+		//		(**ptrThreadInfo).threadID = te32.th32ThreadID;
+		//		(**ptrThreadInfo).next = nullptr;
+		//		ptrThreadInfo = &(**ptrThreadInfo).next;
+		//	} while (::Thread32Next(hThreadSnap, &te32));
+		pointer = moniteProcesses;
+		cout << "checkpoint 1" << endl;
+		while (pointer) {
+			//if ((*pointer).ProcessInfo->resetMode)
+
+			//测试
+			if ((*pointer).ProcessInfo->processName == "msedge.exe")
+				//测试结束
+
+			{
+				//cout << "checkpoint4" << endl;
+				//int processid = (*pointer).ProcessInfo->processID;
+				//struct threadInfo* pointer2 = threadList;
+				//while (pointer2)
+				//{
+				//	cout << "checkpoint 2" << endl;
+				//	if ((*pointer2).ownerProcessID == processid)
+				//	{
+				//		HANDLE handle = OpenThread(THREAD_TERMINATE | THREAD_QUERY_INFORMATION, FALSE, (*pointer2).threadID);
+				//		BOOL bResult = TerminateThread(handle, 0);
+				//		cout << "Terminate thread result:" << bResult << "   error:" << GetLastError() << endl;
+				//		CloseHandle(handle);
+				//	}
+				//	pointer2 = (*pointer2).next;
+				//}
+				//struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
+				//while (processIDPointer && (*processIDPointer).processName != "---null")
+				DWORD id;
+				byte order = 0;
+				byte count = (*pointer).ProcessInfo->countOfProcessID;
+
+				while (id = getProcessID(pointer->ProcessInfo->processesID, order, count))
+				{
+					cout << "checkpoint 2" << endl;
+
+					HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, id);
+					if (handle != NULL)
+					{
+						//EnableDebugPrivilege();
+						BOOL bResult = TerminateProcess(handle, 0);
+						cout << "Terminate result:" << bResult << endl;
+						CloseHandle(handle);
+					}
+				}
+				resetProc(pointer->ProcessInfo, pointer->ProcessInfo->resetMode);
+				//pointer->ProcessInfo->resetMode = false;
+			}
+			pointer = (*pointer).next;
+		}
+		//	}
+		std::cout << "test ok" << std::endl;
+
+		return;
+	}
 };
 
-
-
-int main(void)
+void initService()
 {
 	std::cout << "hello0" << std::endl;
 	printf("hello00");
@@ -727,7 +805,7 @@ int main(void)
 	for (int i = 0; i < l; i++)
 	{
 		string s = zip_get_name(archive, i, ZIP_FL_ENC_GUESS);
-		if (stoi(s.substr(4, 6), nullptr, 10)-stoi(((string)cThatTime).substr(0, 6), nullptr, 10)  > logDateLong) {
+		if (stoi(s.substr(4, 6), nullptr, 10) - stoi(((string)cThatTime).substr(0, 6), nullptr, 10) > logDateLong) {
 			zip_delete(archive, i);
 		}
 
@@ -758,38 +836,38 @@ int main(void)
 	processInfo* p;
 	if (datFile.is_open()) {
 		int i;
-		char s[256] = {0};
+		char s[256] = { 0 };
 		char s2[8] = { 0 };
 		char s3[1] = { 0 };
 		datFile.getline(s, 255, '\n');
 		i = stoi(s);
 		long long d = 0;
 		byte b = 0;
-		long long * dp = &d;
+		long long* dp = &d;
 		byte* bp = &b;
-		for (int j = 0; j < i; j++) 
+		for (int j = 0; j < i; j++)
 		{
-			datFile.getline(s,255,'\n');
-			datFile.read(s,255);
+			datFile.getline(s, 255, '\n');
+			datFile.read(s, 255);
 			s[255] = '\0';
-			p = findMoniteProc((string) s);
+			p = findMoniteProc((string)s);
 			if (p) {
-				p->processName =s;				
-				datFile.read((char*)&d,8);
-				p->startTime= d;
+				p->processName = s;
 				datFile.read((char*)&d, 8);
-				p->lastRunTime=d;
+				p->startTime = d;
 				datFile.read((char*)&d, 8);
-				p->duration= d;
+				p->lastRunTime = d;
 				datFile.read((char*)&d, 8);
-				p->curDuration= d;
+				p->duration = d;
 				datFile.read((char*)&d, 8);
-				p->runTimes= d;
+				p->curDuration = d;
+				datFile.read((char*)&d, 8);
+				p->runTimes = d;
 				datFile.read((char*)&b, 1);
-                p->isRunnig= b;
+				p->isRunnig = b;
 				datFile.read((char*)&b, 1);
-				p->resetMode= b;
-				while (strlen(s) != 0 && strcmp(s , "**!!**!!**!!"))
+				p->resetMode = b;
+				while (strlen(s) != 0 && strcmp(s, "**!!**!!**!!"))
 				{
 					datFile.getline(s, 255);
 					s[255] = '\0';
@@ -798,11 +876,17 @@ int main(void)
 		}
 		datFile.close();
 	}
-	WindowsTimer timer1, timer2;
-	timer1.setCallback(moniteThread);
-	timer2.setCallback(logThread);
-	timer1.start(moniteInterval, true);
-	timer2.start(10000, true);
+	timerMoniteTimer.setCallback(moniteThread);
+	timerlogTimer.setCallback(logThread);
+	timerMoniteTimer.start(moniteInterval, true);
+	timerlogTimer.start(10000, true);
+}
+
+
+int main(void)
+{
+	initService();
+
 	//moniteThread();//仅一次性调用测试
 	//logThread();//仅一次性调用测试
 	OutputDebugString("hello");
@@ -839,7 +923,7 @@ int main(void)
 			//ErrorHandler(TEXT("CreateThread"));
 			ExitProcess(3);
 		}
-
+		serviceState->bRunning = true;
 	while (true)
 	{
 		bool isIdle = true;
