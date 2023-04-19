@@ -7,6 +7,8 @@ const unsigned char MP_TIMERCONTROLER_TERMINATEPROC = 4;
 const unsigned char MP_TIMERCONTROLER_LOGON = 5;
 const unsigned char MP_TIMERCONTROLER_LOGOFF = 6;
 const unsigned char MP_TIMERCONTROLER_LOADSETTING = 7;
+const unsigned char MP_TIMERCONTROLER_QUERYPROCESSINFO = 8;//查询进程信息
+const unsigned char MP_TIMERCONTROLER_GetPROCESSES = 9;//获取当前所有进程信息
 namespace DB {
     const unsigned char rmSpecifiedTime = 0b00000001;//在指定的时间段运行
     const unsigned char rmTimes = 0b00000010;    //每天运行的次数

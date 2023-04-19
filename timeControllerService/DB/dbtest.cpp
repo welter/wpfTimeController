@@ -30,8 +30,15 @@ const int logDateLong = 1;
 //服务状态
 struct struServiceState {
 	bool bRunning;  //是否运行
+	struct struLoggedUser {
+		string sUsername;
+		DWORD dwUserID;
+		DWORD dwUserUUID;
+		struLoggedUser* next;
+	};
 };
 static struServiceState* serviceState=new struServiceState;
+
 //同名进程集结构
 struct processesID {
 	DWORD processID; //进程id
@@ -87,8 +94,8 @@ struct processInfo {
 
 	//根据系统信息运算获取
 	//struct processesID* processes;
-	byte* processesID = new byte[32]{ 0 };
-	byte* ptrLastProcID = &(processesID[0]);
+	DWORD* processesID = new DWORD{ 0 };
+	DWORD* ptrLastProcID = &(processesID[0]);
 	byte countOfProcessID = 0;
 	time_t lastRunTime;
 	time_t duration;
@@ -159,7 +166,7 @@ string WCHAR2String(LPCWSTR pwszSrc)
 }
 
 
-DWORD getProcessID(byte* const processIDGroup, byte& num, byte count)
+DWORD getProcessID(DWORD* const processIDGroup, byte& num, byte count)
 {
 	if (count > num) {
 		byte* p = new byte[8];
@@ -340,7 +347,11 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 					initService();
 					break;
 				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-					msg.lParam
+					//msg.lParam
+					break;
+				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
+					break;
+				case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
 					break;
 				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
 					break;
@@ -370,7 +381,7 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 	// Take a snapshot of all running threads  
 	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
 	if (hThreadSnap == INVALID_HANDLE_VALUE)
-		return(FALSE);
+//		return(FALSE);
 
 	// Fill in the size of the structure before using it. 
 	te32.dwSize = sizeof(THREADENTRY32);
@@ -381,7 +392,7 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 	{
 		//printError(TEXT("Thread32First")); // show cause of failure
 		CloseHandle(hThreadSnap);          // clean the snapshot object
-		return(FALSE);
+//		return(FALSE);
 	}
 
 	// Now walk the thread list of the system,
@@ -412,7 +423,7 @@ void moniteThread() {
 			(*pointer).ProcessInfo->isRunnig = false;
 			(*pointer).ProcessInfo->resetMode = rsNone;
 			delete[](*pointer).ProcessInfo->processesID;
-			(*pointer).ProcessInfo->processesID = new byte[32];
+			(*pointer).ProcessInfo->processesID = new DWORD;
 			(*pointer).ProcessInfo->ptrLastProcID = (*pointer).ProcessInfo->processesID;
 			(*pointer).ProcessInfo->countOfProcessID = 0;
 			pointer = (*pointer).next;
@@ -489,41 +500,28 @@ void moniteThread() {
 
 				byte* p = (byte*)&(pe32.th32ProcessID);
 				byte c = process->countOfProcessID;
+				byte c2 = p2.size();
 				//char* p2 = strchr(process->processesID, '\0');
 
 
 
 				//判断该进程拥有的线程数是否超过原保留空间（以8个线程为单位，满8个需申请新线程信息记录空间）
-				if ((c > 0) && process->ptrLastProcID >= ((byte*)(process->processesID) + ((((c - 1) >> 2) + 1) << 5)))
+				if ((c-c2>7) || c2>(round((c2 + 7) / 8) * 8))
 				{
 					DWORD oldLength = c * 8;
 					//process->countOfProcessID += 32;
-					byte* newProcessesID = new byte[oldLength + 32];
-					if (memcpy(newProcessesID, process->processesID, oldLength))
-					{
-						DWORD oldOffset = process->ptrLastProcID - process->processesID;
-						delete[] process->processesID;
-						process->processesID = newProcessesID;
-						process->ptrLastProcID = process->processesID + oldOffset;
+					DWORD* newProcessesID = (DWORD*)malloc(round((c2 + 7) / 8) * 32);
+					free(process->processesID);
+					process->processesID =  newProcessesID;
 
-					}
-					else;
 				}
-				*(process->ptrLastProcID) = p[0];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[1];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[2];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[3];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[4];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[5];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[6];
-				process->ptrLastProcID++;
-				*(process->ptrLastProcID) = p[7];
+
+				vector<DWORD>::iterator it;
+				for (it = p2.begin(); it != p2.end(); it++) {
+					*(process->ptrLastProcID) = (*it);
+					process->ptrLastProcID++;
+				}
+				process->countOfProcessID = c2;
 				//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
 
 				printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
@@ -556,7 +554,7 @@ void moniteThread() {
 		for (int i = 0; i < maxMoniteProc; i++) {
 			if (pointert->ProcessInfo->processName == "msedge.exe") {
 				cout << "ProcessID2:  ";
-				byte* pp1 = pointert->ProcessInfo->processesID;
+				DWORD* pp1 = pointert->ProcessInfo->processesID;
 				for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
 					printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //测试
 					pp1 += 8;
