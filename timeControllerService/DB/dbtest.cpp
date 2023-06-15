@@ -165,7 +165,10 @@ string WCHAR2String(LPCWSTR pwszSrc)
 	return strTmp;
 }
 
-
+//获取进程ID组（processIDGroup）指定序号的进程id
+//processIDGroup 进程组
+//num需要获取的进程ID序号
+//count备用，进程组长度
 DWORD getProcessID(DWORD* const processIDGroup, byte& num, byte count)
 {
 	if (count > num) {
@@ -238,6 +241,30 @@ void resetProc(processInfo* proc,byte mode)
 		}
 	}
 
+
+BOOL ATerminateProcess(DWORD wProcessID)
+{
+
+	try
+	{
+		cout << "checkpoint 2" << endl;
+
+		HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, wProcessID);
+		if (handle != NULL)
+		{
+			//EnableDebugPrivilege();
+			BOOL bResult = TerminateProcess(handle, 0);
+			cout << "Terminate result:" << bResult << endl;
+			CloseHandle(handle);
+		}
+		return true;
+	}
+	catch (exception err)
+	{
+		return false; 
+	}
+
+}
 
 BOOL EnableDebugPrivilege()
 
@@ -347,7 +374,7 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 					initService();
 					break;
 				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-					//msg.lParam
+					ATerminateProcess(msg.lParam);
 					break;
 				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
 					break;
@@ -671,20 +698,11 @@ void moniteThread() {
 				DWORD id;
 				byte order = 0;
 				byte count = (*pointer).ProcessInfo->countOfProcessID;
-
 				while (id = getProcessID(pointer->ProcessInfo->processesID, order, count))
 				{
-					cout << "checkpoint 2" << endl;
-
-					HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, id);
-					if (handle != NULL)
-					{
-						//EnableDebugPrivilege();
-						BOOL bResult = TerminateProcess(handle, 0);
-						cout << "Terminate result:" << bResult << endl;
-						CloseHandle(handle);
-					}
+					ATerminateProcess((WORD)id)
 				}
+				
 				resetProc(pointer->ProcessInfo, pointer->ProcessInfo->resetMode);
 				//pointer->ProcessInfo->resetMode = false;
 			}
