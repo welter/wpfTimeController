@@ -130,6 +130,8 @@ static struct struLogData* logData = new struLogData[maxLogDataLen];
 static int logDataLen = 0;
 static WindowsTimer timerMoniteTimer, timerlogTimer;
 
+void initService();//前置声明
+
 //以进程名在监控队列中查找进程
 //参数：proceName，进程名
 //返回：找到的进程在监控队列中指针，若没找到返回空指针。
@@ -762,7 +764,7 @@ void moniteThread() {
 				byte count = (*pointer).ProcessInfo->countOfProcessID;
 				while (id = getProcessID(pointer->ProcessInfo->processesID, order, count))
 				{
-					ATerminateProcess((WORD)id)
+					ATerminateProcess((WORD)id);
 				}
 				
 				resetProc(pointer->ProcessInfo, pointer->ProcessInfo->resetMode);
