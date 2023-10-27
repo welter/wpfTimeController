@@ -1,1 +1,1 @@
-﻿add_library(Timer STATIC "Timer.cpp" "Timer.h")
+﻿add_library(Timer SHARED "Timer.cpp" "Timer.h" "pscmd.h" "pscmd.c")

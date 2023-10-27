@@ -14,6 +14,7 @@
 #include "DBRuleService.h"
 #include <zip.h>
 #include <tchar.h>
+#include "../Timer/pscmd.h"
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 const int WM_TIMECONTROLLER = RegisterWindowMessage(_T("TIMECONTROLLER"));
@@ -241,6 +242,46 @@ void resetProc(processInfo* proc,byte mode)
 		}
 	}
 
+BOOL QuerryProcessInformation(processInformation* pmPm,DWORD processId)
+{
+	HANDLE hProcess;
+	processInformation pm = *pmPm;
+	//PROCESS_MEMORY_COUNTERS pmc=pm.pmc;
+	hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+		PROCESS_VM_READ,
+		FALSE, processId);
+	if (NULL == hProcess)
+		return false;
+
+	if (!(GetProcessMemoryInfo(hProcess, &(pm.pmc), sizeof(pm.pmc))))
+	{
+		return false;
+	}
+	SIZE_T nCommandLineSize = NULL;
+	if (GetProcessCommandLine(hProcess, NULL, NULL, &nCommandLineSize)) // 将 lpcBuffer 和 nSize 设置为 NULL 以获取建议缓冲区大小（nCommandLineSize）
+	{
+		/* 在堆上分配建议大小的 Unicode 缓冲区 */
+		PCMDBUFFER_T lpUnicodeBuffer = (PCMDBUFFER_T)malloc(nCommandLineSize);
+		if (lpUnicodeBuffer)
+		{
+			/* 使用 memset（或 WINAPI ZeroMemory）将分配的 Unicode 缓冲区初始化为 zero */
+			memset(lpUnicodeBuffer, NULL, nCommandLineSize);
+			// ZeroMemory(lpUnicodeBuffer, nCommandLineSize);
+
+			/* 再次调用  GetProcessCommandLine 并传入所分配的 Unicode 缓冲区，以取得实际数据 */
+			if (GetProcessCommandLine(hProcess, lpUnicodeBuffer, nCommandLineSize, &nCommandLineSize))
+			{
+				/* nCommandLineSize 的值当前为 GetProcessCommandLine 实际复制到 Uniocde 缓冲区 lpUnicodeBuffer 中的字节数，复制到输出 */
+				pm.commandLine = lpUnicodeBuffer;
+				pm.commandLineSize = nCommandLineSize;
+			}
+
+		}
+	}
+
+	CloseHandle(hProcess);
+	return true;
+}
 
 BOOL ATerminateProcess(DWORD wProcessID)
 {
@@ -377,8 +418,29 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 					ATerminateProcess(msg.lParam);
 					break;
 				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
+					QuerryProcessInformation((processInformation*)msg.wParam, msg.lParam);
 					break;
 				case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
+					PROCESSENTRY32 pe32;
+					// 在使用这个结构之前，先设置它的大小
+					pe32.dwSize = sizeof(pe32);
+					// 给系统内的所有进程拍一个快照
+					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+					if (hProcessSnap == INVALID_HANDLE_VALUE)
+					{
+						printf(" CreateToolhelp32Snapshot调用失败！ \n");
+						return;
+					}
+					processInformation** array_processInformation;
+
+					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+					while (bMore)
+					{
+						array_processInformation = new processInformation*;
+						(*array_processInformation)->pmc = new PROCESS_MEMORY_COUNTERS;
+
+						QuerryProcessInformation(pe32.th32ProcessID)
+					}
 					break;
 				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
 					break;
