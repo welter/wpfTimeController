@@ -17,10 +17,16 @@
 
 
     typedef struct processInformation {
-		PROCESS_MEMORY_COUNTERS pmc;
+		PROCESS_MEMORY_COUNTERS* pmc;
         PCMDBUFFER_T commandLine;
         int commandLineSize;
-};
+    };
+    typedef struct exchangeMessage {
+        char* header = "WPFTIMER";
+        int cmd;
+        int contextLength;
+        char* context;
+    };
 namespace DB {
     const unsigned char rmSpecifiedTime = 0b00000001;//在指定的时间段运行
     const unsigned char rmTimes = 0b00000010;    //每天运行的次数

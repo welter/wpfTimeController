@@ -130,12 +130,12 @@ static struct struLogData* logData = new struLogData[maxLogDataLen];
 static int logDataLen = 0;
 static WindowsTimer timerMoniteTimer, timerlogTimer;
 
-void initService();//前置声明
+void InitService();//前置声明
 
 //以进程名在监控队列中查找进程
 //参数：proceName，进程名
 //返回：找到的进程在监控队列中指针，若没找到返回空指针。
-struct processInfo* findMoniteProc(string procName) {
+struct processInfo* FindMoniteProc(string procName) {
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
 		if ((*pointer).ProcessInfo->processName == procName) return (*pointer).ProcessInfo;
@@ -172,7 +172,7 @@ string WCHAR2String(LPCWSTR pwszSrc)
 //processIDGroup 进程组
 //num需要获取的进程ID序号
 //count备用，进程组长度
-DWORD getProcessID(DWORD* const processIDGroup, byte& num, byte count)
+DWORD GetProcessID(DWORD* const processIDGroup, byte& num, byte count)
 {
 	if (count > num) {
 		byte* p = new byte[8];
@@ -218,7 +218,7 @@ const byte rsDuration = 4;  //重置总运行持续时间
 const byte rsCurDuration = 8;  //重置本次持续时间
 const byte rsTerminate = 16;  //退出
 
-void resetProc(processInfo* proc,byte mode)
+void ResetProc(processInfo* proc,byte mode)
 {
 	if (proc) {
 		if (mode == rsAll)
@@ -255,7 +255,7 @@ BOOL QuerryProcessInformation(processInformation* pmPm,DWORD processId)
 	if (NULL == hProcess)
 		return false;
 
-	if (!(GetProcessMemoryInfo(hProcess, &(pm.pmc), sizeof(pm.pmc))))
+	if (!(GetProcessMemoryInfo(hProcess, pm.pmc, sizeof(pm.pmc))))
 	{
 		return false;
 	}
@@ -331,7 +331,7 @@ BOOL EnableDebugPrivilege()
 }
 
 //日记记录线程
-void logThread() {
+void LogThread() {
 	time_t now = time(0);
 	char* dt = ctime(&now);
 	string s = logFileName + ".log";
@@ -391,7 +391,7 @@ void logThread() {
 	return;
 }
 
-DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
+DWORD static WINAPI MainThread(_In_ LPVOID lpParameter) {
 	MSG msg;
 	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);//使线程产生了一个消息队列
 	//if (!SetEvent(hStartEvent))//激活主线程的等待事件，让主线程给本线程发送消息
@@ -414,7 +414,7 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 					serviceState->bRunning = true;
 					break;
 				case MP_TIMERCONTROLER_RESET:  //重置TimerController
-					initService();
+					InitService();
 					break;
 				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
 					ATerminateProcess(msg.lParam);
@@ -433,15 +433,21 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 						printf(" CreateToolhelp32Snapshot调用失败！ \n");
 						return;
 					}
-					processInformation** array_processInformation;
+					processInformation* pProcessInformation;
 
 					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
 					while (bMore)
 					{
-						array_processInformation = new processInformation*;
-						(*array_processInformation)->pmc = new PROCESS_MEMORY_COUNTERS;
 
-						QuerryProcessInformation(pe32.th32ProcessID)
+						vector <processInformation*> vectorProcessInformation;
+
+						pProcessInformation = new processInformation;
+						
+						(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
+
+						if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
+						    vectorProcessInformation.push_back(pProcessInformation);
+						bMore= ::Process32Next(hProcessSnap, &pe32);
 					}
 					break;
 				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
@@ -458,7 +464,125 @@ DWORD static WINAPI mainThread(_In_ LPVOID lpParameter) {
 	}
 	return 1;
 }
+//主线程，负责与前端通信
+DWORD static MainThread2()
+{
 
+	HANDLE hNamedPipe = CreateNamedPipeA("\\\\.\\pipe\\testName",
+		PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+		PIPE_TYPE_BYTE, 1, 1024, 1024, 0, NULL);
+	//检查是否创建成功
+	if (hNamedPipe == INVALID_HANDLE_VALUE)
+	{
+		::printf("create named pipe failed!\n");
+	}
+	else
+	{
+		::printf("create named pipe success!\n");
+	}
+	//异步IO结构
+	OVERLAPPED op;
+	ZeroMemory(&op, sizeof(OVERLAPPED));
+	//创建一个事件内核对象
+	op.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	//等待一个客户端进行连接
+	BOOL b = ConnectNamedPipe(hNamedPipe, &op);
+	//当有客户端进行连接时，事件变成有信号的状态
+	if (WaitForSingleObject(op.hEvent, INFINITE) == 0)
+	{
+		printf("client connect success!\n");
+	}
+	else
+	{
+		printf("client connect failed!\n");
+	}
+	//连接成功后，进行通信，读写
+	char  buff[100];
+	exchangeMessage* em;
+	sprintf_s(buff, 100, "test message from server!");
+	DWORD cbWrite;
+	WriteFile(hNamedPipe, buff, strlen(buff), &cbWrite, NULL);
+
+	ZeroMemory(buff, 100);
+	ReadFile(hNamedPipe, em, 100, &cbWrite, NULL);
+	if (em->header == "WPFTIMER") 
+	{
+		switch (em->cmd) 
+		{
+		case MP_TIMERCONTROLER_STOP:  //停止TimerController
+			serviceState->bRunning = false;
+			break;
+		case MP_TIMERCONTROLER_RESUME:  //继续TimerController
+			serviceState->bRunning = true;
+			break;
+		case MP_TIMERCONTROLER_RESET:  //重置TimerController
+			InitService();
+			break;
+		case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
+			if (em->contextLength = 4)
+			{
+				DWORD d;
+				memcpy(&d, em->context, 4);
+				ATerminateProcess(d);
+			}
+			break;
+		case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
+			if (em->contextLength = 8)
+			{
+				DWORD d;
+				//processInformation* p
+				memcpy(&d, em->context, 4);
+				void* p = &(em->context[4]);
+				memcpy(&d, p, 4);
+				QuerryProcessInformation((processInformation*)p, d);
+				ATerminateProcess(d);
+			}
+			
+			break;
+		case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
+			PROCESSENTRY32 pe32;
+			// 在使用这个结构之前，先设置它的大小
+			pe32.dwSize = sizeof(pe32);
+			// 给系统内的所有进程拍一个快照
+			HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+			if (hProcessSnap == INVALID_HANDLE_VALUE)
+			{
+				printf(" CreateToolhelp32Snapshot调用失败！ \n");
+				return;
+			}
+			processInformation* pProcessInformation;
+
+			BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+			while (bMore)
+			{
+
+				vector <processInformation*> vectorProcessInformation;
+
+				pProcessInformation = new processInformation;
+
+				(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
+
+				if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
+					vectorProcessInformation.push_back(pProcessInformation);
+				bMore = ::Process32Next(hProcessSnap, &pe32);
+			}
+			break;
+		case MP_TIMERCONTROLER_LOGON:  //登录TimerController
+			break;
+		case MP_TIMERCONTROLER_LOGOFF:  //登出
+			break;
+		case MP_TIMERCONTROLER_LOADSETTING:  //调入设置
+			break;
+		}
+	}
+		
+	//通信完之后，断开连接
+	DisconnectNamedPipe(hNamedPipe);
+	//关闭管道
+	CloseHandle(hNamedPipe);
+	system("pause");
+	return 0;
+}
 //枚举指定PID进程拥有的线程
 //参数：dwOwnerPID进程PID
 //返回: byte* ptrThID,拥有的线程ID数组
@@ -505,7 +629,7 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 	return(result);
 }
 
-void moniteThread() {
+void MoniteThread() {
 	if (serviceState->bRunning)
 	{
 		//将被监控程序信息默认为未运行、不需停止；清空processid；
@@ -561,7 +685,7 @@ void moniteThread() {
 				if (++logDataLen == maxLogDataLen) logDataLen = 0;
 			}
 			//判断是否被监控进程
-			struct processInfo* process = findMoniteProc(pe32.szExeFile);
+			struct processInfo* process = FindMoniteProc(pe32.szExeFile);
 			if (process != NULL) {
 				cout << "finded" << endl;
 				//更新被监控进程实时信息
@@ -762,12 +886,12 @@ void moniteThread() {
 				DWORD id;
 				byte order = 0;
 				byte count = (*pointer).ProcessInfo->countOfProcessID;
-				while (id = getProcessID(pointer->ProcessInfo->processesID, order, count))
+				while (id = GetProcessID(pointer->ProcessInfo->processesID, order, count))
 				{
 					ATerminateProcess((WORD)id);
 				}
 				
-				resetProc(pointer->ProcessInfo, pointer->ProcessInfo->resetMode);
+				ResetProc(pointer->ProcessInfo, pointer->ProcessInfo->resetMode);
 				//pointer->ProcessInfo->resetMode = false;
 			}
 			pointer = (*pointer).next;
@@ -779,7 +903,7 @@ void moniteThread() {
 	}
 };
 
-void initService()
+void InitService()
 {
 	std::cout << "hello0" << std::endl;
 	printf("hello00");
@@ -930,7 +1054,7 @@ void initService()
 			datFile.getline(s, 255, '\n');
 			datFile.read(s, 255);
 			s[255] = '\0';
-			p = findMoniteProc((string)s);
+			p = FindMoniteProc((string)s);
 			if (p) {
 				p->processName = s;
 				datFile.read((char*)&d, 8);
@@ -956,8 +1080,8 @@ void initService()
 		}
 		datFile.close();
 	}
-	timerMoniteTimer.setCallback(moniteThread);
-	timerlogTimer.setCallback(logThread);
+	timerMoniteTimer.setCallback(MoniteThread);
+	timerlogTimer.setCallback(LogThread);
 	timerMoniteTimer.start(moniteInterval, true);
 	timerlogTimer.start(10000, true);
 }
@@ -965,7 +1089,7 @@ void initService()
 
 int main(void)
 {
-	initService();
+	InitService();
 
 	//moniteThread();//仅一次性调用测试
 	//logThread();//仅一次性调用测试
@@ -993,7 +1117,7 @@ int main(void)
 	    threadHandle = CreateThread(
 			NULL,                   // default security attributes
 			0,                      // use default stack size  
-			mainThread,       // thread function name
+			MainThread,       // thread function name
 			NULL,          // argument to thread function 
 			0,                      // use default creation flags 
 			&threadId);   // returns the thread identifier 
