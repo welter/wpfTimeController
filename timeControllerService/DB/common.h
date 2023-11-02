@@ -3,6 +3,7 @@
 #include <wtypes.h>
 #include <xstring>
 #include "../Timer/pscmd.h"
+//服务端接口操作指令
     const unsigned char MP_TIMERCONTROLER_STOP = 1;
     const unsigned char MP_TIMERCONTROLER_RESUME = 2;
     const unsigned char MP_TIMERCONTROLER_RESET = 3;
@@ -12,9 +13,8 @@
     const unsigned char MP_TIMERCONTROLER_LOADSETTING = 7;
     const unsigned char MP_TIMERCONTROLER_QUERYPROCESSINFO = 8;//查询进程信息
     const unsigned char MP_TIMERCONTROLER_GetPROCESSES = 9;//获取当前所有进程信息
-
-
-
+    const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION = 10;//返回进程信息
+    const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATIONS = 11;//返回多个进程信息
 
     typedef struct processInformation {
 		PROCESS_MEMORY_COUNTERS* pmc;

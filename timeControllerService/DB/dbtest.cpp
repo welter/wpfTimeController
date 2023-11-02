@@ -532,12 +532,17 @@ DWORD static MainThread2()
 				DWORD d;
 				//processInformation* p
 				memcpy(&d, em->context, 4);
-				void* p = &(em->context[4]);
+				void* p = new processInformation*;
 				memcpy(&d, p, 4);
 				QuerryProcessInformation((processInformation*)p, d);
-				ATerminateProcess(d);
+	
 			}
-			
+			em->header = "test message from server!";
+			em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+			em->context = &p;
+			em->contextLength = sizeof(&p);
+			//sprintf_s(em, 100, "test message from server!");
+			WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
 			break;
 		case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
 			PROCESSENTRY32 pe32;
@@ -551,13 +556,10 @@ DWORD static MainThread2()
 				return;
 			}
 			processInformation* pProcessInformation;
-
+			vector <processInformation*> vectorProcessInformation;
 			BOOL bMore = ::Process32First(hProcessSnap, &pe32);
 			while (bMore)
 			{
-
-				vector <processInformation*> vectorProcessInformation;
-
 				pProcessInformation = new processInformation;
 
 				(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
@@ -566,6 +568,12 @@ DWORD static MainThread2()
 					vectorProcessInformation.push_back(pProcessInformation);
 				bMore = ::Process32Next(hProcessSnap, &pe32);
 			}
+			em->header= "test message from server!";
+			em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+			em->context = pProcessInformation;
+			em->contextLength = sizeof(pProcessInformation);
+			//sprintf_s(em, 100, "test message from server!");
+			WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
 			break;
 		case MP_TIMERCONTROLER_LOGON:  //登录TimerController
 			break;
