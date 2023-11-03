@@ -152,7 +152,7 @@ BOOL ValidateToken(char* token)
 	return true;
 }
 
-BOOL ValidateUser(char* userName)
+BOOL ValidateUser(char* userName,char * passWord)
 {
 	return true;
 }
