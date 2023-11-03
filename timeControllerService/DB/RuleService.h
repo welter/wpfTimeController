@@ -10,11 +10,11 @@
 namespace DB {
 
 
-    class DBRuleService {
+    class RuleService {
     private:
           SQLite::Database openTable();
-    public:DBRuleService() =default;
-          ~DBRuleService() =default;
+    public:RuleService() =default;
+          ~RuleService() =default;
           bool getRule(DB::TimeControllerRule* rule, const char* ruleName);
           bool getRule(DB::TimeControllerRule* rule, int ruleID);
           int addRule(DB::TimeControllerRule* rule);

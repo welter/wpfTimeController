@@ -3,6 +3,7 @@
 #include <wtypes.h>
 #include <xstring>
 #include "../Timer/pscmd.h"
+#include <Psapi.h>
 //服务端接口操作指令
     const unsigned char MP_TIMERCONTROLER_STOP = 1;
     const unsigned char MP_TIMERCONTROLER_RESUME = 2;
@@ -18,11 +19,13 @@
 
     typedef struct processInformation {
 		PROCESS_MEMORY_COUNTERS* pmc;
+        
         PCMDBUFFER_T commandLine;
         int commandLineSize;
     };
     typedef struct exchangeMessage {
         char* header = "WPFTIMER";
+        char USER_TOKEN[32];
         int cmd;
         int contextLength;
         char* context;

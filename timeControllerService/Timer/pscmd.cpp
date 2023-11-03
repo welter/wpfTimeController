@@ -1,12 +1,9 @@
 #include "pscmd.h"
 
-
+using namespace std;
 /* NTAPI ZwQueryInformationProcess */
 typedef NTSTATUS(NTAPI* Typedef_ZwQueryInformationProcess)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
-//Typedef_ZwQueryInformationProcess pNTAPI_ZwQueryInformationProcess =
-//(Typedef_ZwQueryInformationProcess)GetProcAddress(GetModuleHandle(L"ntdll.dll"), "ZwQueryInformationProcess");
-
-
+Typedef_ZwQueryInformationProcess pNTAPI_ZwQueryInformationProcess=(Typedef_ZwQueryInformationProcess)GetProcAddress(GetModuleHandle(TEXT("ntdll.dll")), "ZwQueryInformationProcess");
 /*
     获取指定进程命令行字符串，失败返回 FALSE（Unicode Version）
 */
@@ -58,9 +55,4 @@ BOOL WINAPI GetProcessCommandLineA(HANDLE hProcess, LPCSTR lpcBuffer, SIZE_T nSi
         }
     }
     return result;
-}
-
-
-main{
-
 }

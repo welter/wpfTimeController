@@ -11,10 +11,11 @@
 #include <WinBase.h>
 #include "RuleModel.h"
 #include "../Timer/Timer.h"
-#include "DBRuleService.h"
+#include "RuleService.h"
 #include <zip.h>
 #include <tchar.h>
 #include "../Timer/pscmd.h"
+//#include <vector>
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 const int WM_TIMECONTROLLER = RegisterWindowMessage(_T("TIMECONTROLLER"));
@@ -27,8 +28,7 @@ const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
 const int maxLogDataLen = 6000;
 const int logDateLong = 1;
-
-//服务状态
+//服务状态;
 struct struServiceState {
 	bool bRunning;  //是否运行
 	struct struLoggedUser {
@@ -144,7 +144,18 @@ struct processInfo* FindMoniteProc(string procName) {
 	}
 	return nullptr;
 }
+//验证token有效性
+//参数token:需验证的token
+//返回：true,有效,false,无效
+BOOL ValidateToken(char* token)
+{
+	return true;
+}
 
+BOOL ValidateUser(char* userName)
+{
+	return true;
+}
 
 // WCHAR 转换为 std::string
 //参数：pwszSrc,WCHAR类型数值
@@ -391,81 +402,81 @@ void LogThread() {
 	return;
 }
 
-DWORD static WINAPI MainThread(_In_ LPVOID lpParameter) {
-	MSG msg;
-	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);//使线程产生了一个消息队列
-	//if (!SetEvent(hStartEvent))//激活主线程的等待事件，让主线程给本线程发送消息
-	//{
-	//	printf("set event error,%d\n", GetLastError());
-	//	return 1;
-	//}
-	while (true)
-	{
-		if (GetMessage(&msg, 0, 0, 0)) //没有消息会主动阻塞等待，直到收到消息
-		{
-			if (msg.message==WM_TIMECONTROLLER)
-			{
-				switch (msg.wParam)
-				{
-				case MP_TIMERCONTROLER_STOP:  //停止TimerController
-					serviceState->bRunning = false;
-					break;
-				case MP_TIMERCONTROLER_RESUME:  //继续TimerController
-					serviceState->bRunning = true;
-					break;
-				case MP_TIMERCONTROLER_RESET:  //重置TimerController
-					InitService();
-					break;
-				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-					ATerminateProcess(msg.lParam);
-					break;
-				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
-					QuerryProcessInformation((processInformation*)msg.wParam, msg.lParam);
-					break;
-				case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
-					PROCESSENTRY32 pe32;
-					// 在使用这个结构之前，先设置它的大小
-					pe32.dwSize = sizeof(pe32);
-					// 给系统内的所有进程拍一个快照
-					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-					if (hProcessSnap == INVALID_HANDLE_VALUE)
-					{
-						printf(" CreateToolhelp32Snapshot调用失败！ \n");
-						return;
-					}
-					processInformation* pProcessInformation;
-
-					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
-					while (bMore)
-					{
-
-						vector <processInformation*> vectorProcessInformation;
-
-						pProcessInformation = new processInformation;
-						
-						(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
-
-						if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
-						    vectorProcessInformation.push_back(pProcessInformation);
-						bMore= ::Process32Next(hProcessSnap, &pe32);
-					}
-					break;
-				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
-					break;
-				case MP_TIMERCONTROLER_LOGOFF:  //登出
-					break;
-				case MP_TIMERCONTROLER_LOADSETTING:  //调入设置
-					break;
-				}
-				printf("okk");
-				//break;
-			}
-		}
-	}
-	return 1;
-}
+//DWORD static WINAPI MainThread(_In_ LPVOID lpParameter) {
+//	MSG msg;
+//	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);//使线程产生了一个消息队列
+//	//if (!SetEvent(hStartEvent))//激活主线程的等待事件，让主线程给本线程发送消息
+//	//{
+//	//	printf("set event error,%d\n", GetLastError());
+//	//	return 1;
+//	//}
+//	while (true)
+//	{
+//		if (GetMessage(&msg, 0, 0, 0)) //没有消息会主动阻塞等待，直到收到消息
+//		{
+//			if (msg.message==WM_TIMECONTROLLER)
+//			{
+//				switch (msg.wParam)
+//				{
+//				case MP_TIMERCONTROLER_STOP:  //停止TimerController
+//					serviceState->bRunning = false;
+//					break;
+//				case MP_TIMERCONTROLER_RESUME:  //继续TimerController
+//					serviceState->bRunning = true;
+//					break;
+//				case MP_TIMERCONTROLER_RESET:  //重置TimerController
+//					InitService();
+//					break;
+//				case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
+//					ATerminateProcess(msg.lParam);
+//					break;
+//				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
+//					QuerryProcessInformation((processInformation*)msg.wParam, msg.lParam);
+//					break;
+//				case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
+//					PROCESSENTRY32 pe32;
+//					// 在使用这个结构之前，先设置它的大小
+//					pe32.dwSize = sizeof(pe32);
+//					// 给系统内的所有进程拍一个快照
+//					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+//					if (hProcessSnap == INVALID_HANDLE_VALUE)
+//					{
+//						printf(" CreateToolhelp32Snapshot调用失败！ \n");
+//						return;
+//					}
+//					processInformation* pProcessInformation;
+//
+//					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+//					while (bMore)
+//					{
+//
+//						vector <processInformation*> vectorProcessInformation;
+//
+//						pProcessInformation = new processInformation;
+//						
+//						(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
+//
+//						if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
+//						    vectorProcessInformation.push_back(pProcessInformation);
+//						bMore= ::Process32Next(hProcessSnap, &pe32);
+//					}
+//					break;
+//				case MP_TIMERCONTROLER_LOGON:  //登录TimerController
+//					break;
+//				case MP_TIMERCONTROLER_LOGOFF:  //登出
+//					break;
+//				case MP_TIMERCONTROLER_LOADSETTING:  //调入设置
+//					break;
+//				}
+//				printf("okk");
+//				//break;
+//			}
+//		}
+//	}
+//	return 1;
+//}
 //主线程，负责与前端通信
-DWORD static MainThread2()
+static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 {
 
 	HANDLE hNamedPipe = CreateNamedPipeA("\\\\.\\pipe\\testName",
@@ -485,111 +496,122 @@ DWORD static MainThread2()
 	ZeroMemory(&op, sizeof(OVERLAPPED));
 	//创建一个事件内核对象
 	op.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	//等待一个客户端进行连接
-	BOOL b = ConnectNamedPipe(hNamedPipe, &op);
-	//当有客户端进行连接时，事件变成有信号的状态
-	if (WaitForSingleObject(op.hEvent, INFINITE) == 0)
+	while (1)
 	{
-		printf("client connect success!\n");
-	}
-	else
-	{
-		printf("client connect failed!\n");
-	}
-	//连接成功后，进行通信，读写
-	char  buff[100];
-	exchangeMessage* em;
-	sprintf_s(buff, 100, "test message from server!");
-	DWORD cbWrite;
-	WriteFile(hNamedPipe, buff, strlen(buff), &cbWrite, NULL);
-
-	ZeroMemory(buff, 100);
-	ReadFile(hNamedPipe, em, 100, &cbWrite, NULL);
-	if (em->header == "WPFTIMER") 
-	{
-		switch (em->cmd) 
+		//等待一个客户端进行连接
+		BOOL b = ConnectNamedPipe(hNamedPipe, &op);
+		//当有客户端进行连接时，事件变成有信号的状态
+		if (WaitForSingleObject(op.hEvent, INFINITE) == 0)
 		{
-		case MP_TIMERCONTROLER_STOP:  //停止TimerController
-			serviceState->bRunning = false;
-			break;
-		case MP_TIMERCONTROLER_RESUME:  //继续TimerController
-			serviceState->bRunning = true;
-			break;
-		case MP_TIMERCONTROLER_RESET:  //重置TimerController
-			InitService();
-			break;
-		case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-			if (em->contextLength = 4)
-			{
-				DWORD d;
-				memcpy(&d, em->context, 4);
-				ATerminateProcess(d);
-			}
-			break;
-		case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
-			if (em->contextLength = 8)
-			{
-				DWORD d;
-				//processInformation* p
-				memcpy(&d, em->context, 4);
-				void* p = new processInformation*;
-				memcpy(&d, p, 4);
-				QuerryProcessInformation((processInformation*)p, d);
-	
-			}
-			em->header = "test message from server!";
-			em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
-			em->context = &p;
-			em->contextLength = sizeof(&p);
-			//sprintf_s(em, 100, "test message from server!");
-			WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
-			break;
-		case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
-			PROCESSENTRY32 pe32;
-			// 在使用这个结构之前，先设置它的大小
-			pe32.dwSize = sizeof(pe32);
-			// 给系统内的所有进程拍一个快照
-			HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-			if (hProcessSnap == INVALID_HANDLE_VALUE)
-			{
-				printf(" CreateToolhelp32Snapshot调用失败！ \n");
-				return;
-			}
-			processInformation* pProcessInformation;
-			vector <processInformation*> vectorProcessInformation;
-			BOOL bMore = ::Process32First(hProcessSnap, &pe32);
-			while (bMore)
-			{
-				pProcessInformation = new processInformation;
-
-				(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
-
-				if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
-					vectorProcessInformation.push_back(pProcessInformation);
-				bMore = ::Process32Next(hProcessSnap, &pe32);
-			}
-			em->header= "test message from server!";
-			em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
-			em->context = pProcessInformation;
-			em->contextLength = sizeof(pProcessInformation);
-			//sprintf_s(em, 100, "test message from server!");
-			WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
-			break;
-		case MP_TIMERCONTROLER_LOGON:  //登录TimerController
-			break;
-		case MP_TIMERCONTROLER_LOGOFF:  //登出
-			break;
-		case MP_TIMERCONTROLER_LOADSETTING:  //调入设置
-			break;
+			printf("client connect success!\n");
 		}
+		else
+		{
+			printf("client connect failed!\n");
+		}
+		//连接成功后，进行通信，读写
+		char  buff[100];
+		exchangeMessage* em;
+		sprintf_s(buff, 100, "test message from server!");
+		DWORD cbWrite;
+		WriteFile(hNamedPipe, buff, strlen(buff), &cbWrite, NULL);
+
+		ZeroMemory(buff, 100);
+		ReadFile(hNamedPipe, em, 100, &cbWrite, NULL);
+		if (em->header == "WPFTIMER")
+		{
+			switch (em->cmd)
+			{
+			case MP_TIMERCONTROLER_STOP:  //停止TimerController
+				if ((ValidateToken(em->USER_TOKEN)))
+					serviceState->bRunning = false;
+				break;
+			case MP_TIMERCONTROLER_RESUME:  //继续TimerController
+				if ((ValidateToken(em->USER_TOKEN)))
+					serviceState->bRunning = true;
+				break;
+			case MP_TIMERCONTROLER_RESET:  //重置TimerController
+				InitService();
+				break;
+			case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
+				if ((ValidateToken(em->USER_TOKEN)) &(em->contextLength = 4))
+				{
+					DWORD d;
+					memcpy(&d, em->context, 4);
+					ATerminateProcess(d);
+				}
+				break;
+			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
+			{
+				if ((ValidateToken(em->USER_TOKEN)) & (em->contextLength = 8))
+				{
+					DWORD d;
+					//processInformation* p
+					memcpy(&d, em->context, 4);
+					void* p = new processInformation*;
+					memcpy(&d, p, 4);
+					QuerryProcessInformation((processInformation*)p, d);
+					em->header = "test message from server!";
+					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+					em->context = (char*)&p;
+					em->contextLength = sizeof(&p);
+					//sprintf_s(em, 100, "test message from server!");
+					WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
+				}
+			}
+			break;
+			case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
+			{
+				if ((ValidateToken(em->USER_TOKEN)))
+				{
+					PROCESSENTRY32 pe32;
+					// 在使用这个结构之前，先设置它的大小
+					pe32.dwSize = sizeof(pe32);
+					// 给系统内的所有进程拍一个快照
+					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+					if (hProcessSnap == INVALID_HANDLE_VALUE)
+					{
+						printf(" CreateToolhelp32Snapshot调用失败！ \n");
+						return 0;
+					}
+					processInformation* pProcessInformation;
+					vector <processInformation*> vectorProcessInformation;
+					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+					while (bMore)
+					{
+						pProcessInformation = new processInformation;
+
+						(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
+
+						if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
+							vectorProcessInformation.push_back(pProcessInformation);
+						bMore = ::Process32Next(hProcessSnap, &pe32);
+					}
+					em->header = "test message from server!";
+					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+					em->context = (char*)pProcessInformation;
+					em->contextLength = sizeof(pProcessInformation);
+					//sprintf_s(em, 100, "test message from server!");
+					WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
+				}
+				break;
+			}
+			case MP_TIMERCONTROLER_LOGON:  //登录TimerController
+				break;
+			case MP_TIMERCONTROLER_LOGOFF:  //登出
+				break;
+			case MP_TIMERCONTROLER_LOADSETTING:  //调入设置
+				break;
+			}
+		}
+
+		//通信完之后，断开连接
+		DisconnectNamedPipe(hNamedPipe);
 	}
-		
-	//通信完之后，断开连接
-	DisconnectNamedPipe(hNamedPipe);
 	//关闭管道
 	CloseHandle(hNamedPipe);
-	system("pause");
-	return 0;
+	return 1;
+
 }
 //枚举指定PID进程拥有的线程
 //参数：dwOwnerPID进程PID
