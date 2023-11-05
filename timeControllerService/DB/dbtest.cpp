@@ -937,7 +937,7 @@ void InitService()
 {
 	std::cout << "hello0" << std::endl;
 	printf("hello00");
-	DB::DBRuleService DBRS;
+	DB::RuleService DBRS;
 	DB::TimeControllerRule* rule = new DB::TimeControllerRule();
 	DBRS.getRule(rule, 1);
 	rule->SetRuleName("2");
