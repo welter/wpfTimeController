@@ -153,7 +153,7 @@ BOOL ValidateToken(char* token)
 	return true;
 }
 
-BOOL ValidateUser(char* userName,char * passWord)
+BOOL ValidateUser(char* userName,char * passWord,char* token)
 {
 	const char* DBPath = "user.db";
 	SQLite::Database db("");
@@ -167,7 +167,7 @@ BOOL ValidateUser(char* userName,char * passWord)
 			db = std::move(SQLite::Database(DBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE));
 		}
 		catch (std::exception& e) {
-			return NULL;
+			return false;
 		}
 	}
 
@@ -178,9 +178,23 @@ BOOL ValidateUser(char* userName,char * passWord)
 		mQuery.bind(":USERNAME", userName);     
 		if (mQuery.executeStep())
 		db.exec(sql);
-		char* passWord = (char*)mQuery.getColumn(2).getText();
+		char* pw = (char*)mQuery.getColumn(2).getText();
+		if (strcmp(passWord, pw) == 0)
+		{
+			scanf(token, "asfd");
+			db.~Database();
+			return true;
+		}
 	}
-	return true;
+	try {
+		db.~Database();
+		return false;
+	}
+	catch (std::exception& e)
+	{
+		return false;
+	}
+	
 }
 
 // WCHAR ×ª»»Îª std::string
