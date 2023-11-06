@@ -15,6 +15,7 @@
 #include <zip.h>
 #include <tchar.h>
 #include "../Timer/pscmd.h"
+#include <SQLiteCpp/SQLiteCpp.h>
 //#include <vector>
 using namespace std;
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
@@ -154,6 +155,31 @@ BOOL ValidateToken(char* token)
 
 BOOL ValidateUser(char* userName,char * passWord)
 {
+	const char* DBPath = "user.db";
+	SQLite::Database db("");
+	try {
+		db = std::move(SQLite::Database(DBPath, SQLite::OPEN_READWRITE));
+	}
+	catch (std::exception& e)
+	{
+		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+		try {
+			db = std::move(SQLite::Database(DBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE));
+		}
+		catch (std::exception& e) {
+			return NULL;
+		}
+	}
+
+	if (!db.tableExists("USER")) {
+		const char* sql;
+		sql = "select * from user where username from USER";
+		SQLite::Statement mQuery(db, sql);
+		mQuery.bind(":USERNAME", userName);     
+		if (mQuery.executeStep())
+		db.exec(sql);
+		char* passWord = (char*)mQuery.getColumn(2).getText();
+	}
 	return true;
 }
 
