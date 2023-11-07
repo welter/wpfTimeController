@@ -17,6 +17,7 @@
 #include "../Timer/pscmd.h"
 //#include <vector>
 using namespace std;
+
 #define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
 const int WM_TIMECONTROLLER = RegisterWindowMessage(_T("TIMECONTROLLER"));
 
@@ -152,9 +153,49 @@ BOOL ValidateToken(char* token)
 	return true;
 }
 
-BOOL ValidateUser(char* userName,char * passWord)
+BOOL ValidateUser(char* userName,char * passWord,char* token)
 {
-	return true;
+	const char* DBPath = "user.db";
+//	SQLite::Database* db;
+	try {
+//		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
+	}
+	catch (std::exception& e)
+	{
+		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+		try {
+//			db = new SQLite::Database(DBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
+		}
+		catch (std::exception& e) {
+			return false;
+		}
+	}
+
+//	if (!(*db).tableExists("USER"))
+	{
+		const char* sql;
+		sql = "select * from user where username from USER";
+//		SQLite::Statement mQuery((*db), sql);
+//		mQuery.bind(":USERNAME", userName);
+//		if (mQuery.executeStep())
+//			(*db).exec(sql);
+//		char* pw = (char*)mQuery.getColumn(2).getText();
+//		if (strcmp(passWord, pw) == 0)
+		{
+			scanf(token, "asfd");
+//			(*db).~Database();
+			return true;
+		}
+	}
+	try {
+//		(*db).~Database();
+		return false;
+	}
+	catch (std::exception& e)
+	{
+		return false;
+	}
+
 }
 
 // WCHAR ×ª»»Îª std::string
