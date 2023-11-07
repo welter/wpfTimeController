@@ -151,7 +151,7 @@ void WINAPI ServiceMain()
     SetServiceStatus(hServiceStatus, &status);
     char* s = "g:\\tmp\\test.db";
     char* s2 = "";
-    DB::DBRuleService ruleDB;
+    DB::RuleService ruleDB;
     DB::TimeControllerRule* rule = new DB::TimeControllerRule();
     try {
         ruleDB.getRule(rule,1);

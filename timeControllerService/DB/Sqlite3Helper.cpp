@@ -12,7 +12,7 @@ using namespace std;
     }
 
     void ServiceDBHelper::closeDatabase() {
-        db->~Database();
+        //db->~Database();
     }
 
     void ServiceDBHelper::new_table(const char* tableName, const char* tableStruct[],int structSize) {
@@ -44,6 +44,7 @@ using namespace std;
         s = tableName;
         s= "CREATE TABLE " +s + "(" + temp.c_str() + "); ";
        db->exec("");
+       c
         
         //temp = "CREATE TABLE " + name +
         //    "(NAME          TEXT    NOT NULL," +

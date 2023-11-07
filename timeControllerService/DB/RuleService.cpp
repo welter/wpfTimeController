@@ -10,10 +10,21 @@ namespace DB {
 	const char* serviceDBPath = "rule.db";
 	string s;
 	int rc;
+	SQLite::Database db = NULL;
+	bool RuleService::closeTable() 
+	{
+		try {
+			db.~Database();
+		}
+		catch (std::exception& e) {
+			return false;
+		}
+		return true;
+	}
+	bool RuleService::openTable() 
+	{
 
-	SQLite::Database RuleService::openTable() {
-
-		SQLite::Database db("");
+		
 		try {
 			db = std::move(SQLite::Database(serviceDBPath, SQLite::OPEN_READWRITE));
 		}
@@ -24,7 +35,7 @@ namespace DB {
 				db = std::move(SQLite::Database(serviceDBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE));
 			}
 			catch (std::exception& e) {
-				return NULL;
+				return false;
 			}
 		}
 
@@ -34,50 +45,54 @@ namespace DB {
 			sql = s.c_str();
 			db.exec(sql);
 		}
-		return(db);
+		return true;
 	}
 
 
 	int RuleService::addRule(TimeControllerRule* rule) {
 		const char* sql;
 		string r;
-		SQLite::Database db = openTable();
+		openTable();
 		r = SQL_AddRule((*rule));
 		sql = r.c_str();
 		rc = db.exec(sql);
+		closeTable();
 		return rc;
 	}
 	bool RuleService::deleteRule(int ruleID) {
 		const char* sql;
 		string r;
-		SQLite::Database db = openTable();
+		openTable();
 		r = SQL_DeleteRule(to_string(ruleID));
 		sql = r.c_str();
 		rc = db.exec(sql);
+		closeTable();
 		return rc;
 	}
 	bool RuleService::deleteRule(const char* ruleName) {
 		const char* sql;
 		string r;
-		SQLite::Database db = openTable();
+		openTable();
 		r = SQL_DeleteRuleByName((string)ruleName);
 		sql = r.c_str();
 		rc = db.exec(sql);
+		closeTable();
 		return rc;
 	}
 	bool RuleService::clear() {
 		const char* sql;
 		string r;
-		SQLite::Database db = openTable();
+		openTable();
 		r = SQL_ClearRule;
 		sql = r.c_str();
 		rc = db.exec(sql);
+		closeTable();
 		return rc;
 	}
 	bool RuleService::getRule(DB::TimeControllerRule* rule, const char* ruleName) {
 		const char* sql;
 		sql = SQL_GetRuleByName;
-		SQLite::Database db = openTable();
+		openTable();
 		SQLite::Statement mQuery(db, sql);
 		mQuery.bind(":rulename", ruleName);
 		//vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
@@ -108,13 +123,14 @@ namespace DB {
 			//rule=&r;
 			rule->SetInterval(mQuery.getColumn(13).getInt64());
 		}
+		closeTable();
 		return true;
 		//rule = &a;
 	}
 	bool RuleService::getRule(DB::TimeControllerRule* rule, int ruleID) {
 		const char* sql;
 		sql = SQL_GetRuleByID;
-		SQLite::Database db = openTable();
+		openTable();
 		SQLite::Statement mQuery(db, sql);
 		mQuery.bind(":ruleid", ruleID);
 		//vector<TimeControllerRule*> a=vector<TimeControllerRule*>();       
@@ -145,6 +161,7 @@ namespace DB {
 			//rule=&r;
 			rule->SetInterval(mQuery.getColumn(13).getInt64());
 		}
+		closeTable();
 		return true;
 		//rule = &a;
 	}
@@ -152,7 +169,7 @@ namespace DB {
 	bool RuleService::setRule(const char* ruleName, DB::TimeControllerRule* rule) {
 		const char* sql;
 		sql = SQL_SetRuleByName;
-		SQLite::Database db = openTable();
+		openTable();
 		SQLite::Statement mQuery(db, sql);
 		mQuery.bind(":programname", rule->GetProgramName());
 		mQuery.bind(":programtitle", rule->GetProgramTitle());
@@ -175,12 +192,13 @@ namespace DB {
 		mQuery.bind(":interval", rule->GetInterval());
 		mQuery.bind(":rulename", ruleName);
 		mQuery.exec();
+		closeTable();
 		return true;
 	}
 	bool RuleService::setRule(int ruleID, DB::TimeControllerRule* rule) {
 		const char* sql;
 		sql = SQL_SetRuleByID;
-		SQLite::Database db = openTable();
+		openTable();
 		SQLite::Statement mQuery(db, sql);
 		mQuery.bind(":programname", rule->GetProgramName());
 		mQuery.bind(":programtitle", rule->GetProgramTitle());
@@ -204,25 +222,31 @@ namespace DB {
 		mQuery.bind(":interval", rule->GetInterval());
 		mQuery.bind(":ruleid", ruleID);
 		mQuery.exec();
+		closeTable();
 		return true;
 	}
 
 	int RuleService::getRuleCount() {
 		const char* sql;
 		sql = SQL_GetRuleCount;
-		SQLite::Database db = openTable();
+		openTable();
 		SQLite::Statement mQuery(db, sql);
 		if (mQuery.executeStep())
+		{
+			closeTable();
 			return mQuery.getColumn(0);
-		else 
+		}
+		else
+		{
+			closeTable();
 			return -1;
-
+		}
 	}
 
 	bool RuleService::getAllRule(DB::TimeControllerRule*** rules,int& ruleCount) {
 		const char* sql;
 		sql = SQL_GetAllRule;
-		SQLite::Database db = openTable();
+		openTable();
 		SQLite::Statement mQuery(db, sql);
 		ruleCount=db.execAndGet(SQL_GetRuleCount);
 		int count=0;
@@ -257,6 +281,7 @@ namespace DB {
 			//rule=&r;
 			count++;
 		}
+		closeTable();
 		return (ruleCount>count);
 		//rule = &a;
 	}
