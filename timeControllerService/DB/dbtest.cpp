@@ -15,6 +15,7 @@
 #include <zip.h>
 #include <tchar.h>
 #include "../Timer/pscmd.h"
+#include <SQLiteCpp/SQLiteCpp.h>
 //#include <vector>
 using namespace std;
 
@@ -25,13 +26,13 @@ const string logFileName = "test";
 const string procInfoDatFileName = "procinfo";
 const char* logFilePath = "/";
 const int moniteInterval = 5000;
-const int intervalAsNextRun = 20;//Ïà¸ô¶àÉÙÊ±¼äµ±×öÁ½´ÎÔËĞĞ£¬µ¥Î»Ãë
+const int intervalAsNextRun = 20;//ç›¸éš”å¤šå°‘æ—¶é—´å½“åšä¸¤æ¬¡è¿è¡Œï¼Œå•ä½ç§’
 const int runModeCount = 6;
 const int maxLogDataLen = 6000;
 const int logDateLong = 1;
-//·şÎñ×´Ì¬;
+//æœåŠ¡çŠ¶æ€;
 struct struServiceState {
-	bool bRunning;  //ÊÇ·ñÔËĞĞ
+	bool bRunning;  //æ˜¯å¦è¿è¡Œ
 	struct struLoggedUser {
 		string sUsername;
 		DWORD dwUserID;
@@ -41,10 +42,10 @@ struct struServiceState {
 };
 static struServiceState* serviceState=new struServiceState;
 
-//Í¬Ãû½ø³Ì¼¯½á¹¹
+//åŒåè¿›ç¨‹é›†ç»“æ„
 struct processesID {
-	DWORD processID; //½ø³Ìid
-	string processName; //½ø³ÌÃû³Æ
+	DWORD processID; //è¿›ç¨‹id
+	string processName; //è¿›ç¨‹åç§°
 	processesID* next;
 };
 struct struLogData {
@@ -60,13 +61,13 @@ struct struLogData {
 	DWORD th32ProcessID;
 };
 
-//½ø³ÌĞÅÏ¢½á¹¹
+//è¿›ç¨‹ä¿¡æ¯ç»“æ„
 struct processInfo {
 
-	DWORD   id;//Î¨Ò»Ö÷ID
+	DWORD   id;//å”¯ä¸€ä¸»ID
 
 
-	//´ÓÏµÍ³ÊµÊ±»ñÈ¡
+	//ä»ç³»ç»Ÿå®æ—¶è·å–
 	DWORD   size;
 	DWORD   usage;
 	//DWORD   processID;          // this process
@@ -78,8 +79,8 @@ struct processInfo {
 	DWORD   flags;
 
 
-	//´Ó¹æÔò¿âÖĞ»ñÈ¡
-	int dbID;  //¹æÔò¿âID
+	//ä»è§„åˆ™åº“ä¸­è·å–
+	int dbID;  //è§„åˆ™åº“ID
 	int runMode;
 	int times;
 	string ProgramTitle;
@@ -94,7 +95,7 @@ struct processInfo {
 	time_t endTime;
 
 
-	//¸ù¾İÏµÍ³ĞÅÏ¢ÔËËã»ñÈ¡
+	//æ ¹æ®ç³»ç»Ÿä¿¡æ¯è¿ç®—è·å–
 	//struct processesID* processes;
 	DWORD* processesID = new DWORD{ 0 };
 	DWORD* ptrLastProcID = &(processesID[0]);
@@ -112,9 +113,9 @@ struct processes {
 	struct processes* next;
 };
 
-//°´ÔËĞĞÄ£Ê½·ÖÀàµÄĞè¼àÊÓ½ø³Ì¼¯ºÏ
+//æŒ‰è¿è¡Œæ¨¡å¼åˆ†ç±»çš„éœ€ç›‘è§†è¿›ç¨‹é›†åˆ
 struct processesByRuleList { 
-	int runMode;  //ÔËĞĞÄ£Ê½
+	int runMode;  //è¿è¡Œæ¨¡å¼
 	struct processInfo* ProcessInfo;
 	struct processesByRuleList* next;
 };
@@ -124,18 +125,18 @@ struct threadInfo {
 	int ownerProcessID;
 	threadInfo* next;
 };
-static struct processes* moniteProcesses;// = new struct processes;  //Ğè¼àÊÓµÄ½ø³Ì
+static struct processes* moniteProcesses;// = new struct processes;  //éœ€ç›‘è§†çš„è¿›ç¨‹
 static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
 static struct struLogData* logData = new struLogData[maxLogDataLen];
 static int logDataLen = 0;
 static WindowsTimer timerMoniteTimer, timerlogTimer;
 
-void InitService();//Ç°ÖÃÉùÃ÷
+void InitService();//å‰ç½®å£°æ˜
 
-//ÒÔ½ø³ÌÃûÔÚ¼à¿Ø¶ÓÁĞÖĞ²éÕÒ½ø³Ì
-//²ÎÊı£ºproceName£¬½ø³ÌÃû
-//·µ»Ø£ºÕÒµ½µÄ½ø³ÌÔÚ¼à¿Ø¶ÓÁĞÖĞÖ¸Õë£¬ÈôÃ»ÕÒµ½·µ»Ø¿ÕÖ¸Õë¡£
+//ä»¥è¿›ç¨‹ååœ¨ç›‘æ§é˜Ÿåˆ—ä¸­æŸ¥æ‰¾è¿›ç¨‹
+//å‚æ•°ï¼šproceNameï¼Œè¿›ç¨‹å
+//è¿”å›ï¼šæ‰¾åˆ°çš„è¿›ç¨‹åœ¨ç›‘æ§é˜Ÿåˆ—ä¸­æŒ‡é’ˆï¼Œè‹¥æ²¡æ‰¾åˆ°è¿”å›ç©ºæŒ‡é’ˆã€‚
 struct processInfo* FindMoniteProc(string procName) {
 	struct processes* pointer = moniteProcesses;
 	while (pointer) {
@@ -145,9 +146,9 @@ struct processInfo* FindMoniteProc(string procName) {
 	}
 	return nullptr;
 }
-//ÑéÖ¤tokenÓĞĞ§ĞÔ
-//²ÎÊıtoken:ĞèÑéÖ¤µÄtoken
-//·µ»Ø£ºtrue,ÓĞĞ§,false,ÎŞĞ§
+//éªŒè¯tokenæœ‰æ•ˆæ€§
+//å‚æ•°token:éœ€éªŒè¯çš„token
+//è¿”å›ï¼štrue,æœ‰æ•ˆ,false,æ— æ•ˆ
 BOOL ValidateToken(char* token)
 {
 	return true;
@@ -156,20 +157,25 @@ BOOL ValidateToken(char* token)
 BOOL ValidateUser(char* userName,char * passWord,char* token)
 {
 	const char* DBPath = "user.db";
+
 //	SQLite::Database* db;
 	try {
 //		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
+
 	}
 	catch (std::exception& e)
 	{
 		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
 		try {
+
 //			db = new SQLite::Database(DBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
+
 		}
 		catch (std::exception& e) {
 			return false;
 		}
 	}
+
 
 //	if (!(*db).tableExists("USER"))
 	{
@@ -184,11 +190,14 @@ BOOL ValidateUser(char* userName,char * passWord,char* token)
 		{
 			scanf(token, "asfd");
 //			(*db).~Database();
+
 			return true;
 		}
 	}
 	try {
+
 //		(*db).~Database();
+
 		return false;
 	}
 	catch (std::exception& e)
@@ -198,9 +207,9 @@ BOOL ValidateUser(char* userName,char * passWord,char* token)
 
 }
 
-// WCHAR ×ª»»Îª std::string
-//²ÎÊı£ºpwszSrc,WCHARÀàĞÍÊıÖµ
-//·µ»Ø£ºÏàÓ¦µÄstd::stringÀàĞÍÊıÖµ
+// WCHAR è½¬æ¢ä¸º std::string
+//å‚æ•°ï¼špwszSrc,WCHARç±»å‹æ•°å€¼
+//è¿”å›ï¼šç›¸åº”çš„std::stringç±»å‹æ•°å€¼
 string WCHAR2String(LPCWSTR pwszSrc)
 {
 	int nLen = WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, NULL, 0, NULL, NULL);
@@ -220,10 +229,10 @@ string WCHAR2String(LPCWSTR pwszSrc)
 	return strTmp;
 }
 
-//»ñÈ¡½ø³ÌID×é£¨processIDGroup£©Ö¸¶¨ĞòºÅµÄ½ø³Ìid
-//processIDGroup ½ø³Ì×é
-//numĞèÒª»ñÈ¡µÄ½ø³ÌIDĞòºÅ
-//count±¸ÓÃ£¬½ø³Ì×é³¤¶È
+//è·å–è¿›ç¨‹IDç»„ï¼ˆprocessIDGroupï¼‰æŒ‡å®šåºå·çš„è¿›ç¨‹id
+//processIDGroup è¿›ç¨‹ç»„
+//numéœ€è¦è·å–çš„è¿›ç¨‹IDåºå·
+//countå¤‡ç”¨ï¼Œè¿›ç¨‹ç»„é•¿åº¦
 DWORD GetProcessID(DWORD* const processIDGroup, byte& num, byte count)
 {
 	if (count > num) {
@@ -262,13 +271,13 @@ DWORD GetProcessID(DWORD* const processIDGroup, byte& num, byte count)
 	}
 }
 
-//ÖØÖÃ·½Ê½
-const byte rsNone = 0;  //²»ÖØÖÃ
-const byte rsAll =1;  //ÖØÖÃÈ«²¿
-const byte rsRuntimes = 2;  //ÖØÖÃÔËĞĞ´ÎÊı
-const byte rsDuration = 4;  //ÖØÖÃ×ÜÔËĞĞ³ÖĞøÊ±¼ä
-const byte rsCurDuration = 8;  //ÖØÖÃ±¾´Î³ÖĞøÊ±¼ä
-const byte rsTerminate = 16;  //ÍË³ö
+//é‡ç½®æ–¹å¼
+const byte rsNone = 0;  //ä¸é‡ç½®
+const byte rsAll =1;  //é‡ç½®å…¨éƒ¨
+const byte rsRuntimes = 2;  //é‡ç½®è¿è¡Œæ¬¡æ•°
+const byte rsDuration = 4;  //é‡ç½®æ€»è¿è¡ŒæŒç»­æ—¶é—´
+const byte rsCurDuration = 8;  //é‡ç½®æœ¬æ¬¡æŒç»­æ—¶é—´
+const byte rsTerminate = 16;  //é€€å‡º
 
 void ResetProc(processInfo* proc,byte mode)
 {
@@ -312,20 +321,20 @@ BOOL QuerryProcessInformation(processInformation* pmPm,DWORD processId)
 		return false;
 	}
 	SIZE_T nCommandLineSize = NULL;
-	if (GetProcessCommandLine(hProcess, NULL, NULL, &nCommandLineSize)) // ½« lpcBuffer ºÍ nSize ÉèÖÃÎª NULL ÒÔ»ñÈ¡½¨Òé»º³åÇø´óĞ¡£¨nCommandLineSize£©
+	if (GetProcessCommandLine(hProcess, NULL, NULL, &nCommandLineSize)) // å°† lpcBuffer å’Œ nSize è®¾ç½®ä¸º NULL ä»¥è·å–å»ºè®®ç¼“å†²åŒºå¤§å°ï¼ˆnCommandLineSizeï¼‰
 	{
-		/* ÔÚ¶ÑÉÏ·ÖÅä½¨Òé´óĞ¡µÄ Unicode »º³åÇø */
+		/* åœ¨å †ä¸Šåˆ†é…å»ºè®®å¤§å°çš„ Unicode ç¼“å†²åŒº */
 		PCMDBUFFER_T lpUnicodeBuffer = (PCMDBUFFER_T)malloc(nCommandLineSize);
 		if (lpUnicodeBuffer)
 		{
-			/* Ê¹ÓÃ memset£¨»ò WINAPI ZeroMemory£©½«·ÖÅäµÄ Unicode »º³åÇø³õÊ¼»¯Îª zero */
+			/* ä½¿ç”¨ memsetï¼ˆæˆ– WINAPI ZeroMemoryï¼‰å°†åˆ†é…çš„ Unicode ç¼“å†²åŒºåˆå§‹åŒ–ä¸º zero */
 			memset(lpUnicodeBuffer, NULL, nCommandLineSize);
 			// ZeroMemory(lpUnicodeBuffer, nCommandLineSize);
 
-			/* ÔÙ´Îµ÷ÓÃ  GetProcessCommandLine ²¢´«ÈëËù·ÖÅäµÄ Unicode »º³åÇø£¬ÒÔÈ¡µÃÊµ¼ÊÊı¾İ */
+			/* å†æ¬¡è°ƒç”¨  GetProcessCommandLine å¹¶ä¼ å…¥æ‰€åˆ†é…çš„ Unicode ç¼“å†²åŒºï¼Œä»¥å–å¾—å®é™…æ•°æ® */
 			if (GetProcessCommandLine(hProcess, lpUnicodeBuffer, nCommandLineSize, &nCommandLineSize))
 			{
-				/* nCommandLineSize µÄÖµµ±Ç°Îª GetProcessCommandLine Êµ¼Ê¸´ÖÆµ½ Uniocde »º³åÇø lpUnicodeBuffer ÖĞµÄ×Ö½ÚÊı£¬¸´ÖÆµ½Êä³ö */
+				/* nCommandLineSize çš„å€¼å½“å‰ä¸º GetProcessCommandLine å®é™…å¤åˆ¶åˆ° Uniocde ç¼“å†²åŒº lpUnicodeBuffer ä¸­çš„å­—èŠ‚æ•°ï¼Œå¤åˆ¶åˆ°è¾“å‡º */
 				pm.commandLine = lpUnicodeBuffer;
 				pm.commandLineSize = nCommandLineSize;
 			}
@@ -382,7 +391,7 @@ BOOL EnableDebugPrivilege()
 	return fOk;
 }
 
-//ÈÕ¼Ç¼ÇÂ¼Ïß³Ì
+//æ—¥è®°è®°å½•çº¿ç¨‹
 void LogThread() {
 	time_t now = time(0);
 	char* dt = ctime(&now);
@@ -397,7 +406,7 @@ void LogThread() {
 	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
 	if (logFileOpen && canLog)
 	{
-		logFile << endl << "**************************¼ÇÂ¼Ê±¼ä£º" << dt << endl;
+		logFile << endl << "**************************è®°å½•æ—¶é—´ï¼š" << dt << endl;
 		for (int i = 0; i < logDataLen; i++)
 		{
 
@@ -445,44 +454,44 @@ void LogThread() {
 
 //DWORD static WINAPI MainThread(_In_ LPVOID lpParameter) {
 //	MSG msg;
-//	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);//Ê¹Ïß³Ì²úÉúÁËÒ»¸öÏûÏ¢¶ÓÁĞ
-//	//if (!SetEvent(hStartEvent))//¼¤»îÖ÷Ïß³ÌµÄµÈ´ıÊÂ¼ş£¬ÈÃÖ÷Ïß³Ì¸ø±¾Ïß³Ì·¢ËÍÏûÏ¢
+//	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);//ä½¿çº¿ç¨‹äº§ç”Ÿäº†ä¸€ä¸ªæ¶ˆæ¯é˜Ÿåˆ—
+//	//if (!SetEvent(hStartEvent))//æ¿€æ´»ä¸»çº¿ç¨‹çš„ç­‰å¾…äº‹ä»¶ï¼Œè®©ä¸»çº¿ç¨‹ç»™æœ¬çº¿ç¨‹å‘é€æ¶ˆæ¯
 //	//{
 //	//	printf("set event error,%d\n", GetLastError());
 //	//	return 1;
 //	//}
 //	while (true)
 //	{
-//		if (GetMessage(&msg, 0, 0, 0)) //Ã»ÓĞÏûÏ¢»áÖ÷¶¯×èÈûµÈ´ı£¬Ö±µ½ÊÕµ½ÏûÏ¢
+//		if (GetMessage(&msg, 0, 0, 0)) //æ²¡æœ‰æ¶ˆæ¯ä¼šä¸»åŠ¨é˜»å¡ç­‰å¾…ï¼Œç›´åˆ°æ”¶åˆ°æ¶ˆæ¯
 //		{
 //			if (msg.message==WM_TIMECONTROLLER)
 //			{
 //				switch (msg.wParam)
 //				{
-//				case MP_TIMERCONTROLER_STOP:  //Í£Ö¹TimerController
+//				case MP_TIMERCONTROLER_STOP:  //åœæ­¢TimerController
 //					serviceState->bRunning = false;
 //					break;
-//				case MP_TIMERCONTROLER_RESUME:  //¼ÌĞøTimerController
+//				case MP_TIMERCONTROLER_RESUME:  //ç»§ç»­TimerController
 //					serviceState->bRunning = true;
 //					break;
-//				case MP_TIMERCONTROLER_RESET:  //ÖØÖÃTimerController
+//				case MP_TIMERCONTROLER_RESET:  //é‡ç½®TimerController
 //					InitService();
 //					break;
-//				case MP_TIMERCONTROLER_TERMINATEPROC:  //½áÊø½ø³Ì
+//				case MP_TIMERCONTROLER_TERMINATEPROC:  //ç»“æŸè¿›ç¨‹
 //					ATerminateProcess(msg.lParam);
 //					break;
-//				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //²éÑ¯½ø³ÌĞÅÏ¢
+//				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //æŸ¥è¯¢è¿›ç¨‹ä¿¡æ¯
 //					QuerryProcessInformation((processInformation*)msg.wParam, msg.lParam);
 //					break;
-//				case MP_TIMERCONTROLER_GetPROCESSES://»ñÈ¡µ±Ç°ËùÓĞ½ø³ÌĞÅÏ¢
+//				case MP_TIMERCONTROLER_GetPROCESSES://è·å–å½“å‰æ‰€æœ‰è¿›ç¨‹ä¿¡æ¯
 //					PROCESSENTRY32 pe32;
-//					// ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ö®Ç°£¬ÏÈÉèÖÃËüµÄ´óĞ¡
+//					// åœ¨ä½¿ç”¨è¿™ä¸ªç»“æ„ä¹‹å‰ï¼Œå…ˆè®¾ç½®å®ƒçš„å¤§å°
 //					pe32.dwSize = sizeof(pe32);
-//					// ¸øÏµÍ³ÄÚµÄËùÓĞ½ø³ÌÅÄÒ»¸ö¿ìÕÕ
+//					// ç»™ç³»ç»Ÿå†…çš„æ‰€æœ‰è¿›ç¨‹æ‹ä¸€ä¸ªå¿«ç…§
 //					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 //					if (hProcessSnap == INVALID_HANDLE_VALUE)
 //					{
-//						printf(" CreateToolhelp32Snapshotµ÷ÓÃÊ§°Ü£¡ \n");
+//						printf(" CreateToolhelp32Snapshotè°ƒç”¨å¤±è´¥ï¼ \n");
 //						return;
 //					}
 //					processInformation* pProcessInformation;
@@ -502,11 +511,11 @@ void LogThread() {
 //						bMore= ::Process32Next(hProcessSnap, &pe32);
 //					}
 //					break;
-//				case MP_TIMERCONTROLER_LOGON:  //µÇÂ¼TimerController
+//				case MP_TIMERCONTROLER_LOGON:  //ç™»å½•TimerController
 //					break;
-//				case MP_TIMERCONTROLER_LOGOFF:  //µÇ³ö
+//				case MP_TIMERCONTROLER_LOGOFF:  //ç™»å‡º
 //					break;
-//				case MP_TIMERCONTROLER_LOADSETTING:  //µ÷ÈëÉèÖÃ
+//				case MP_TIMERCONTROLER_LOADSETTING:  //è°ƒå…¥è®¾ç½®
 //					break;
 //				}
 //				printf("okk");
@@ -516,14 +525,14 @@ void LogThread() {
 //	}
 //	return 1;
 //}
-//Ö÷Ïß³Ì£¬¸ºÔğÓëÇ°¶ËÍ¨ĞÅ
+//ä¸»çº¿ç¨‹ï¼Œè´Ÿè´£ä¸å‰ç«¯é€šä¿¡
 static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 {
 
 	HANDLE hNamedPipe = CreateNamedPipeA("\\\\.\\pipe\\testName",
 		PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
 		PIPE_TYPE_BYTE, 1, 1024, 1024, 0, NULL);
-	//¼ì²éÊÇ·ñ´´½¨³É¹¦
+	//æ£€æŸ¥æ˜¯å¦åˆ›å»ºæˆåŠŸ
 	if (hNamedPipe == INVALID_HANDLE_VALUE)
 	{
 		::printf("create named pipe failed!\n");
@@ -532,16 +541,16 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 	{
 		::printf("create named pipe success!\n");
 	}
-	//Òì²½IO½á¹¹
+	//å¼‚æ­¥IOç»“æ„
 	OVERLAPPED op;
 	ZeroMemory(&op, sizeof(OVERLAPPED));
-	//´´½¨Ò»¸öÊÂ¼şÄÚºË¶ÔÏó
+	//åˆ›å»ºä¸€ä¸ªäº‹ä»¶å†…æ ¸å¯¹è±¡
 	op.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	while (1)
 	{
-		//µÈ´ıÒ»¸ö¿Í»§¶Ë½øĞĞÁ¬½Ó
+		//ç­‰å¾…ä¸€ä¸ªå®¢æˆ·ç«¯è¿›è¡Œè¿æ¥
 		BOOL b = ConnectNamedPipe(hNamedPipe, &op);
-		//µ±ÓĞ¿Í»§¶Ë½øĞĞÁ¬½ÓÊ±£¬ÊÂ¼ş±ä³ÉÓĞĞÅºÅµÄ×´Ì¬
+		//å½“æœ‰å®¢æˆ·ç«¯è¿›è¡Œè¿æ¥æ—¶ï¼Œäº‹ä»¶å˜æˆæœ‰ä¿¡å·çš„çŠ¶æ€
 		if (WaitForSingleObject(op.hEvent, INFINITE) == 0)
 		{
 			printf("client connect success!\n");
@@ -550,7 +559,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 		{
 			printf("client connect failed!\n");
 		}
-		//Á¬½Ó³É¹¦ºó£¬½øĞĞÍ¨ĞÅ£¬¶ÁĞ´
+		//è¿æ¥æˆåŠŸåï¼Œè¿›è¡Œé€šä¿¡ï¼Œè¯»å†™
 		char  buff[100];
 		exchangeMessage* em;
 		sprintf_s(buff, 100, "test message from server!");
@@ -563,18 +572,18 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 		{
 			switch (em->cmd)
 			{
-			case MP_TIMERCONTROLER_STOP:  //Í£Ö¹TimerController
+			case MP_TIMERCONTROLER_STOP:  //åœæ­¢TimerController
 				if ((ValidateToken(em->USER_TOKEN)))
 					serviceState->bRunning = false;
 				break;
-			case MP_TIMERCONTROLER_RESUME:  //¼ÌĞøTimerController
+			case MP_TIMERCONTROLER_RESUME:  //ç»§ç»­TimerController
 				if ((ValidateToken(em->USER_TOKEN)))
 					serviceState->bRunning = true;
 				break;
-			case MP_TIMERCONTROLER_RESET:  //ÖØÖÃTimerController
+			case MP_TIMERCONTROLER_RESET:  //é‡ç½®TimerController
 				InitService();
 				break;
-			case MP_TIMERCONTROLER_TERMINATEPROC:  //½áÊø½ø³Ì
+			case MP_TIMERCONTROLER_TERMINATEPROC:  //ç»“æŸè¿›ç¨‹
 				if ((ValidateToken(em->USER_TOKEN)) &(em->contextLength = 4))
 				{
 					DWORD d;
@@ -582,7 +591,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 					ATerminateProcess(d);
 				}
 				break;
-			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //²éÑ¯½ø³ÌĞÅÏ¢
+			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //æŸ¥è¯¢è¿›ç¨‹ä¿¡æ¯
 			{
 				if ((ValidateToken(em->USER_TOKEN)) & (em->contextLength = 8))
 				{
@@ -601,18 +610,18 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 				}
 			}
 			break;
-			case MP_TIMERCONTROLER_GetPROCESSES://»ñÈ¡µ±Ç°ËùÓĞ½ø³ÌĞÅÏ¢
+			case MP_TIMERCONTROLER_GetPROCESSES://è·å–å½“å‰æ‰€æœ‰è¿›ç¨‹ä¿¡æ¯
 			{
 				if ((ValidateToken(em->USER_TOKEN)))
 				{
 					PROCESSENTRY32 pe32;
-					// ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ö®Ç°£¬ÏÈÉèÖÃËüµÄ´óĞ¡
+					// åœ¨ä½¿ç”¨è¿™ä¸ªç»“æ„ä¹‹å‰ï¼Œå…ˆè®¾ç½®å®ƒçš„å¤§å°
 					pe32.dwSize = sizeof(pe32);
-					// ¸øÏµÍ³ÄÚµÄËùÓĞ½ø³ÌÅÄÒ»¸ö¿ìÕÕ
+					// ç»™ç³»ç»Ÿå†…çš„æ‰€æœ‰è¿›ç¨‹æ‹ä¸€ä¸ªå¿«ç…§
 					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 					if (hProcessSnap == INVALID_HANDLE_VALUE)
 					{
-						printf(" CreateToolhelp32Snapshotµ÷ÓÃÊ§°Ü£¡ \n");
+						printf(" CreateToolhelp32Snapshotè°ƒç”¨å¤±è´¥ï¼ \n");
 						return 0;
 					}
 					processInformation* pProcessInformation;
@@ -637,26 +646,26 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 				}
 				break;
 			}
-			case MP_TIMERCONTROLER_LOGON:  //µÇÂ¼TimerController
+			case MP_TIMERCONTROLER_LOGON:  //ç™»å½•TimerController
 				break;
-			case MP_TIMERCONTROLER_LOGOFF:  //µÇ³ö
+			case MP_TIMERCONTROLER_LOGOFF:  //ç™»å‡º
 				break;
-			case MP_TIMERCONTROLER_LOADSETTING:  //µ÷ÈëÉèÖÃ
+			case MP_TIMERCONTROLER_LOADSETTING:  //è°ƒå…¥è®¾ç½®
 				break;
 			}
 		}
 
-		//Í¨ĞÅÍêÖ®ºó£¬¶Ï¿ªÁ¬½Ó
+		//é€šä¿¡å®Œä¹‹åï¼Œæ–­å¼€è¿æ¥
 		DisconnectNamedPipe(hNamedPipe);
 	}
-	//¹Ø±Õ¹ÜµÀ
+	//å…³é—­ç®¡é“
 	CloseHandle(hNamedPipe);
 	return 1;
 
 }
-//Ã¶¾ÙÖ¸¶¨PID½ø³ÌÓµÓĞµÄÏß³Ì
-//²ÎÊı£ºdwOwnerPID½ø³ÌPID
-//·µ»Ø: byte* ptrThID,ÓµÓĞµÄÏß³ÌIDÊı×é
+//æšä¸¾æŒ‡å®šPIDè¿›ç¨‹æ‹¥æœ‰çš„çº¿ç¨‹
+//å‚æ•°ï¼šdwOwnerPIDè¿›ç¨‹PID
+//è¿”å›: byte* ptrThID,æ‹¥æœ‰çš„çº¿ç¨‹IDæ•°ç»„
 vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 {
 	vector <DWORD> result;
@@ -703,7 +712,7 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 void MoniteThread() {
 	if (serviceState->bRunning)
 	{
-		//½«±»¼à¿Ø³ÌĞòĞÅÏ¢Ä¬ÈÏÎªÎ´ÔËĞĞ¡¢²»ĞèÍ£Ö¹£»Çå¿Õprocessid£»
+		//å°†è¢«ç›‘æ§ç¨‹åºä¿¡æ¯é»˜è®¤ä¸ºæœªè¿è¡Œã€ä¸éœ€åœæ­¢ï¼›æ¸…ç©ºprocessidï¼›
 		struct processes* pointer = moniteProcesses;
 		while (pointer) {
 			(*pointer).ProcessInfo->isRunnig = false;
@@ -717,17 +726,17 @@ void MoniteThread() {
 		time_t now = time(0);
 		char* dt = ctime(&now);
 		PROCESSENTRY32 pe32;
-		// ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ö®Ç°£¬ÏÈÉèÖÃËüµÄ´óĞ¡
+		// åœ¨ä½¿ç”¨è¿™ä¸ªç»“æ„ä¹‹å‰ï¼Œå…ˆè®¾ç½®å®ƒçš„å¤§å°
 		pe32.dwSize = sizeof(pe32);
 
-		// ¸øÏµÍ³ÄÚµÄËùÓĞ½ø³ÌÅÄÒ»¸ö¿ìÕÕ
+		// ç»™ç³»ç»Ÿå†…çš„æ‰€æœ‰è¿›ç¨‹æ‹ä¸€ä¸ªå¿«ç…§
 		HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 		if (hProcessSnap == INVALID_HANDLE_VALUE)
 		{
-			printf(" CreateToolhelp32Snapshotµ÷ÓÃÊ§°Ü£¡ \n");
+			printf(" CreateToolhelp32Snapshotè°ƒç”¨å¤±è´¥ï¼ \n");
 			return;
 		}
-		//ÄÜ·ñ¼ÇÂ¼log
+		//èƒ½å¦è®°å½•log
 		HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
 		BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
 		if (canLog)
@@ -737,7 +746,7 @@ void MoniteThread() {
 			CloseHandle(hMutex);
 			hMutex = NULL;
 		}
-		// ±éÀú½ø³Ì¿ìÕÕ
+		// éå†è¿›ç¨‹å¿«ç…§
 		BOOL bMore = ::Process32First(hProcessSnap, &pe32);
 		while (bMore)
 		{
@@ -755,11 +764,11 @@ void MoniteThread() {
 				logData[logDataLen].th32ProcessID = pe32.th32ProcessID;
 				if (++logDataLen == maxLogDataLen) logDataLen = 0;
 			}
-			//ÅĞ¶ÏÊÇ·ñ±»¼à¿Ø½ø³Ì
+			//åˆ¤æ–­æ˜¯å¦è¢«ç›‘æ§è¿›ç¨‹
 			struct processInfo* process = FindMoniteProc(pe32.szExeFile);
 			if (process != NULL) {
 				cout << "finded" << endl;
-				//¸üĞÂ±»¼à¿Ø½ø³ÌÊµÊ±ĞÅÏ¢
+				//æ›´æ–°è¢«ç›‘æ§è¿›ç¨‹å®æ—¶ä¿¡æ¯
 				process->defaultHeapID = pe32.th32DefaultHeapID;
 				process->flags = pe32.dwFlags;
 				if (now - process->lastRunTime > intervalAsNextRun)
@@ -779,7 +788,7 @@ void MoniteThread() {
 				process->processes->next->next = nullptr;*/
 
 
-				//¼ÇÂ¼¸Ã½ø³ÌÓµÓĞµÄÏß³Ì
+				//è®°å½•è¯¥è¿›ç¨‹æ‹¥æœ‰çš„çº¿ç¨‹
 
 				vector <DWORD> p2;
 				p2 = ListProcessThreads(pe32.th32ProcessID);
@@ -791,7 +800,7 @@ void MoniteThread() {
 
 
 
-				//ÅĞ¶Ï¸Ã½ø³ÌÓµÓĞµÄÏß³ÌÊıÊÇ·ñ³¬¹ıÔ­±£Áô¿Õ¼ä£¨ÒÔ8¸öÏß³ÌÎªµ¥Î»£¬Âú8¸öĞèÉêÇëĞÂÏß³ÌĞÅÏ¢¼ÇÂ¼¿Õ¼ä£©
+				//åˆ¤æ–­è¯¥è¿›ç¨‹æ‹¥æœ‰çš„çº¿ç¨‹æ•°æ˜¯å¦è¶…è¿‡åŸä¿ç•™ç©ºé—´ï¼ˆä»¥8ä¸ªçº¿ç¨‹ä¸ºå•ä½ï¼Œæ»¡8ä¸ªéœ€ç”³è¯·æ–°çº¿ç¨‹ä¿¡æ¯è®°å½•ç©ºé—´ï¼‰
 				if ((c-c2>7) || c2>(round((c2 + 7) / 8) * 8))
 				{
 					DWORD oldLength = c * 8;
@@ -808,9 +817,9 @@ void MoniteThread() {
 					process->ptrLastProcID++;
 				}
 				process->countOfProcessID = c2;
-				//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //²âÊÔ
+				//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //æµ‹è¯•
 
-				printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //²âÊÔ
+				printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //æµ‹è¯•
 				process->ptrLastProcID++;
 				process->countOfProcessID++;
 				process->duration += moniteInterval / 1000;
@@ -823,7 +832,7 @@ void MoniteThread() {
 			}
 			//wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
 
-			//printf(" Process ID is£º%u \n\n", pe32.th32ProcessID);
+			//printf(" Process ID isï¼š%u \n\n", pe32.th32ProcessID);
 
 			bMore = ::Process32Next(hProcessSnap, &pe32);
 		}
@@ -831,18 +840,18 @@ void MoniteThread() {
 			CloseHandle(hMutex);
 			hMutex = NULL;
 		}
-		// ÊÍ·Åsnapshot¶ÔÏó
+		// é‡Šæ”¾snapshotå¯¹è±¡
 		::CloseHandle(hProcessSnap);
 
 
-		//²âÊÔ
+		//æµ‹è¯•
 		processes* pointert = moniteProcesses;
 		for (int i = 0; i < maxMoniteProc; i++) {
 			if (pointert->ProcessInfo->processName == "msedge.exe") {
 				cout << "ProcessID2:  ";
 				DWORD* pp1 = pointert->ProcessInfo->processesID;
 				for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
-					printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //²âÊÔ
+					printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //æµ‹è¯•
 					pp1 += 8;
 				}
 				cout << endl;
@@ -850,11 +859,11 @@ void MoniteThread() {
 			pointert = pointert->next;
 		}
 
-		//²âÊÔ½áÊø
+		//æµ‹è¯•ç»“æŸ
 
 		static struct processesByRuleList* scanPtr;
 		processInfo* pInfo;
-		//ÅĞ¶ÏÊÇ·ñÔÚÖ¸¶¨µÄÊ±¼ä¶ÎÔËĞĞ
+		//åˆ¤æ–­æ˜¯å¦åœ¨æŒ‡å®šçš„æ—¶é—´æ®µè¿è¡Œ
 		scanPtr = processesByRule[0];
 		while (scanPtr)
 		{
@@ -862,7 +871,7 @@ void MoniteThread() {
 			if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->resetMode |= rsTerminate;
 			scanPtr = (*scanPtr).next;
 		}
-		//ÅĞ¶ÏÊÇ·ñ³¬¹ıÃ¿ÌìÔËĞĞµÄ´ÎÊı
+		//åˆ¤æ–­æ˜¯å¦è¶…è¿‡æ¯å¤©è¿è¡Œçš„æ¬¡æ•°
 		scanPtr = processesByRule[1];
 		while (scanPtr)
 		{
@@ -870,7 +879,7 @@ void MoniteThread() {
 			if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->resetMode |= rsTerminate;
 			scanPtr = (*scanPtr).next;
 		}
-		//ÅĞ¶ÏÃ¿Á½´ÎÔËĞĞ¼ä¸ôÊÇ·ñ³¬¹ı¹æ¶¨Ê±¼ä
+		//åˆ¤æ–­æ¯ä¸¤æ¬¡è¿è¡Œé—´éš”æ˜¯å¦è¶…è¿‡è§„å®šæ—¶é—´
 		scanPtr = processesByRule[2];
 		while (scanPtr)
 		{
@@ -878,7 +887,7 @@ void MoniteThread() {
 			if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->resetMode |= rsTerminate;
 			scanPtr = (*scanPtr).next;
 		}
-		//ÅĞ¶ÏÃ¿´ÎÔËĞĞ³ÖĞøÊÇ·ñ³¬¹ı¹æ¶¨Ê±¼ä
+		//åˆ¤æ–­æ¯æ¬¡è¿è¡ŒæŒç»­æ˜¯å¦è¶…è¿‡è§„å®šæ—¶é—´
 		scanPtr = processesByRule[3];
 		while (scanPtr)
 		{
@@ -886,7 +895,7 @@ void MoniteThread() {
 			if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->resetMode |= rsCurDuration | rsTerminate;
 			scanPtr = (*scanPtr).next;
 		}
-		//ÅĞ¶ÏÊÇ·ñÔÚ½ûÖ¹µÄÊ±¼ä¶ÎÔËĞĞ
+		//åˆ¤æ–­æ˜¯å¦åœ¨ç¦æ­¢çš„æ—¶é—´æ®µè¿è¡Œ
 		scanPtr = processesByRule[4];
 		while (scanPtr)
 		{
@@ -894,7 +903,7 @@ void MoniteThread() {
 			if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->resetMode |= rsTerminate;
 			scanPtr = (*scanPtr).next;
 		}
-		//ÅĞ¶ÏÃ¿Ìì×Ü¹²ÔËĞĞÊ±³¤ÊÇ·ñ³¬¹ı¹æ¶¨Ê±¼ä
+		//åˆ¤æ–­æ¯å¤©æ€»å…±è¿è¡Œæ—¶é•¿æ˜¯å¦è¶…è¿‡è§„å®šæ—¶é—´
 		scanPtr = processesByRule[5];
 		while (scanPtr)
 		{
@@ -904,7 +913,7 @@ void MoniteThread() {
 		}
 
 		cout << "checkpoint 3" << endl;
-		//Í£Ö¹´¥¼°¹æ¶¨µÄ½ø³Ì
+		//åœæ­¢è§¦åŠè§„å®šçš„è¿›ç¨‹
 
 		//HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
 		//THREADENTRY32   te32;
@@ -932,9 +941,9 @@ void MoniteThread() {
 		while (pointer) {
 			//if ((*pointer).ProcessInfo->resetMode)
 
-			//²âÊÔ
+			//æµ‹è¯•
 			if ((*pointer).ProcessInfo->processName == "msedge.exe")
-				//²âÊÔ½áÊø
+				//æµ‹è¯•ç»“æŸ
 
 			{
 				//cout << "checkpoint4" << endl;
@@ -1010,9 +1019,9 @@ void InitService()
 		(*tempProcessNode).ProcessInfo = new processInfo;
 		(*tempProcessNode).next = nullptr;
 		if (ptrNodeProcess) (*ptrNodeProcess) = tempProcessNode;
-		//Éú³ÉÖ÷ID;
+		//ç”Ÿæˆä¸»ID;
 		(**ptrNodeProcess).ProcessInfo->id = i;
-		//»ñÈ¡Ğè¼àÊÓ½ø³Ì¹æÔò¿âÖĞµÄĞÅÏ¢
+		//è·å–éœ€ç›‘è§†è¿›ç¨‹è§„åˆ™åº“ä¸­çš„ä¿¡æ¯
 		(**ptrNodeProcess).ProcessInfo->dbID = (*rules)[i]->GetId();
 		(**ptrNodeProcess).ProcessInfo->processName = (*rules)[i]->GetProgramName();
 		(**ptrNodeProcess).ProcessInfo->endTime = (*rules)[i]->GetEndTime();
@@ -1025,7 +1034,7 @@ void InitService()
 		(**ptrNodeProcess).ProcessInfo->runMode = (*rules)[i]->GetRunMode();
 		(**ptrNodeProcess).ProcessInfo->TotalTime = (*rules)[i]->GetTotalTime();
 		(**ptrNodeProcess).ProcessInfo->startTime = (*rules)[i]->GetStartTime();
-		//³õÊ¼»¯±»¼àÊÓ½ø³ÌĞÅÏ¢
+		//åˆå§‹åŒ–è¢«ç›‘è§†è¿›ç¨‹ä¿¡æ¯
 		(**ptrNodeProcess).ProcessInfo->runTimes = 0;
 		//(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
 		//(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
@@ -1040,7 +1049,7 @@ void InitService()
 			//curNodeByRule = processesByRule[j]=new struct processesByRuleList;
 			processesByRuleList* tempNodeByRule = new struct processesByRuleList;
 			(*tempNodeByRule).next = nullptr;
-			//Ìí¼Ó½ø³ÌÖ¸Õëµ½¶ÔÓ¦ÔËĞĞÄ£Ê½µÄ¼àÊÓÁĞ±íÖĞ£¬Ä£Ê½Í¨¹ırunMode¶ş½øÖÆÎ»ÉèÖÃ¶¨Òå£¬Ïê¼ûcommon.hÎÄ¼ş
+			//æ·»åŠ è¿›ç¨‹æŒ‡é’ˆåˆ°å¯¹åº”è¿è¡Œæ¨¡å¼çš„ç›‘è§†åˆ—è¡¨ä¸­ï¼Œæ¨¡å¼é€šè¿‡runModeäºŒè¿›åˆ¶ä½è®¾ç½®å®šä¹‰ï¼Œè¯¦è§common.hæ–‡ä»¶
 			if ((**ptrNodeProcess).ProcessInfo->runMode & (0x1 << j))
 			{
 				(*tempNodeByRule).ProcessInfo = (**ptrNodeProcess).ProcessInfo;
@@ -1064,7 +1073,7 @@ void InitService()
 	}
 	//for (int i = 0; i < runModeCount; i++)
 	//	if (curNodeByRule[i]) delete curNodeByRule[i];
-	//if (curNodeProcess) delete curNodeProcess; Äã
+	//if (curNodeProcess) delete curNodeProcess; ä½ 
 	delete* rules;
 	delete rules;
 	time_t now = time(0);
@@ -1162,8 +1171,8 @@ int main(void)
 {
 	InitService();
 
-	//moniteThread();//½öÒ»´ÎĞÔµ÷ÓÃ²âÊÔ
-	//logThread();//½öÒ»´ÎĞÔµ÷ÓÃ²âÊÔ
+	//moniteThread();//ä»…ä¸€æ¬¡æ€§è°ƒç”¨æµ‹è¯•
+	//logThread();//ä»…ä¸€æ¬¡æ€§è°ƒç”¨æµ‹è¯•
 	OutputDebugString("hello");
 
 	//PMYDATA pDataArray;
@@ -1202,9 +1211,9 @@ int main(void)
 	while (true)
 	{
 		bool isIdle = true;
-		if (KEYDOWN(VK_ESCAPE)) // °´ESCÍË³ö,·Ç×èÈûÄ£Ê½£¬Ã¿´ÎÑ­»·²»»áÍ£ÁôÔÚÕâ
+		if (KEYDOWN(VK_ESCAPE)) // æŒ‰ESCé€€å‡º,éé˜»å¡æ¨¡å¼ï¼Œæ¯æ¬¡å¾ªç¯ä¸ä¼šåœç•™åœ¨è¿™
 			return -1;
-		if (isIdle && KEYDOWN(0x41))  //°´¡°A¡±¼ü
+		if (isIdle && KEYDOWN(0x41))  //æŒ‰â€œAâ€é”®
 		{
 			isIdle = false;
 			MSG msg;
@@ -1214,7 +1223,7 @@ int main(void)
 			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
 			isIdle = true;
 		}
-		if (isIdle && KEYDOWN(0x42))  //°´¡°B¡±¼ü
+		if (isIdle && KEYDOWN(0x42))  //æŒ‰â€œBâ€é”®
 		{
 			isIdle = false;
 			MSG msg;
@@ -1224,7 +1233,7 @@ int main(void)
 			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
 			isIdle = true;
 		}
-		if (isIdle && KEYDOWN(0x43))  //°´¡°C¡±¼ü
+		if (isIdle && KEYDOWN(0x43))  //æŒ‰â€œCâ€é”®
 		{
 			isIdle = false;
 			MSG msg;
