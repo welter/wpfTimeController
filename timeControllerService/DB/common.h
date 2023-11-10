@@ -17,6 +17,8 @@
     const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION = 10;//返回进程信息
     const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATIONS = 11;//返回多个进程信息
 
+    const std::string DES_KEY = "asdfasdfsadfasdf";
+
     typedef struct processInformation {
 		PROCESS_MEMORY_COUNTERS* pmc;
         
@@ -24,11 +26,12 @@
         int commandLineSize;
     };
     typedef struct exchangeMessage {
-        char* header = "WPFTIMER";
-        char USER_TOKEN[32];
+        std::string header = "WPFTIMER";
+        std::string USERNAME;
+        std::string USER_TOKEN;
         int cmd;
         int contextLength;
-        char* context;
+        std::string context;
     };
 namespace DB {
     const unsigned char rmSpecifiedTime = 0b00000001;//在指定的时间段运行

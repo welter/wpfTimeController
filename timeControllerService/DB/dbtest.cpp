@@ -16,8 +16,8 @@
 #include <tchar.h>
 #include "../Timer/pscmd.h"
 #include <fstream>
-#include "openssl/rsa.h"
-#include <openssl/pem.h>
+#include "openssl/des.h"
+
 
 //#include <vector>
 using namespace std;
@@ -139,47 +139,62 @@ void InitService();//前置声明
 
 /*
 @brief : 公钥加密
-@para  : clear_text  -[i] 需要进行加密的明文
+@para  : clearText  -[i] 需要进行加密的明文
 		 pub_key     -[i] 公钥
 @return: 加密后的数据
 **/
-std::string GenRsaPubEncrypt(const std::string& clear_text, const std::string& pub_key)
+std::string GenToken(const std::string& userName, const std::string& key)
 {
-	std::string encrypt_text;
-	BIO* keybio = BIO_new_mem_buf((unsigned char*)pub_key.c_str(), -1);
-	RSA* rsa = RSA_new();
-	// 注意-----第1种格式的公钥
-	//rsa = PEM_read_bio_RSAPublicKey(keybio, &rsa, NULL, NULL);
-	// 注意-----第2种格式的公钥（这里以第二种格式为例）
-	rsa = PEM_read_bio_RSA_PUBKEY(keybio, &rsa, NULL, NULL);
+	std::string cipherText; // 密文    
+	std::string clearText = "WPFTIMER" + userName;
+	DES_cblock keyEncrypt;
+	memset(keyEncrypt, 0, 8);
 
-	// 获取RSA单次可以处理的数据块的最大长度
-	int key_len = RSA_size(rsa);
-	int block_len = key_len - 11;    // 因为填充方式为RSA_PKCS1_PADDING, 所以要在key_len基础上减去11
+	// 构造补齐后的**    
+	if (key.length() <= 8)
+		memcpy(keyEncrypt, key.c_str(), key.length());
+	else
+		memcpy(keyEncrypt, key.c_str(), 8);
 
-	// 申请内存：存贮加密后的密文数据
-	char* sub_text = new char[key_len + 1];
-	memset(sub_text, 0, key_len + 1);
-	int ret = 0;
-	int pos = 0;
-	std::string sub_str;
-	// 对数据进行分段加密（返回值是加密后数据的长度）
-	while (pos < clear_text.length()) {
-		sub_str = clear_text.substr(pos, block_len);
-		memset(sub_text, 0, key_len + 1);
-		ret = RSA_public_encrypt(sub_str.length(), (const unsigned char*)sub_str.c_str(), (unsigned char*)sub_text, rsa, RSA_PKCS1_PADDING);
-		if (ret >= 0) {
-			encrypt_text.append(std::string(sub_text, ret));
-		}
-		pos += block_len;
+	// **置换    
+	DES_key_schedule keySchedule;
+	DES_set_key_unchecked(&keyEncrypt, &keySchedule);
+
+	// 循环加密，每8字节一次    
+	const_DES_cblock inputText;
+	DES_cblock outputText;
+	std::vector<unsigned char> vecCiphertext;
+	unsigned char tmp[8];
+
+	for (int i = 0; i < clearText.length() / 8; i++)
+	{
+		memcpy(inputText, clearText.c_str() + i * 8, 8);
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_ENCRYPT);
+		memcpy(tmp, outputText, 8);
+
+		for (int j = 0; j < 8; j++)
+			vecCiphertext.push_back(tmp[j]);
 	}
 
-	// 释放内存  
-	BIO_free_all(keybio);
-	RSA_free(rsa);
-	delete[] sub_text;
+	if (clearText.length() % 8 != 0)
+	{
+		int tmp1 = clearText.length() / 8 * 8;
+		int tmp2 = clearText.length() - tmp1;
+		memset(inputText, 0, 8);
+		memcpy(inputText, clearText.c_str() + tmp1, tmp2);
+		// 加密函数    
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_ENCRYPT);
+		memcpy(tmp, outputText, 8);
 
-	return encrypt_text;
+		for (int j = 0; j < 8; j++)
+			vecCiphertext.push_back(tmp[j]);
+	}
+
+	cipherText.clear();
+	cipherText.assign(vecCiphertext.begin(), vecCiphertext.end());
+
+	return cipherText;
+
 }
 
 //以进程名在监控队列中查找进程
@@ -197,9 +212,60 @@ struct processInfo* FindMoniteProc(string procName) {
 //验证token有效性
 //参数token:需验证的token
 //返回：true,有效,false,无效
-BOOL ValidateToken(char* token)
+BOOL ValidateToken(const std::string& userName,const std::string& token,const std::string& key)
+
 {
-	return true;
+	std::string clearText; // 明文    
+
+	DES_cblock keyEncrypt;
+	memset(keyEncrypt, 0, 8);
+
+	if (key.length() <= 8)
+		memcpy(keyEncrypt, key.c_str(), key.length());
+	else
+		memcpy(keyEncrypt, key.c_str(), 8);
+
+	DES_key_schedule keySchedule;
+	DES_set_key_unchecked(&keyEncrypt, &keySchedule);
+
+	const_DES_cblock inputText;
+	DES_cblock outputText;
+	std::vector<unsigned char> vecCleartext;
+	unsigned char tmp[8];
+
+	for (int i = 0; i < token.length() / 8; i++)
+	{
+		memcpy(inputText, token.c_str() + i * 8, 8);
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_DECRYPT);
+		memcpy(tmp, outputText, 8);
+
+		for (int j = 0; j < 8; j++)
+			vecCleartext.push_back(tmp[j]);
+	}
+
+	if (token.length() % 8 != 0)
+	{
+		int tmp1 = token.length() / 8 * 8;
+		int tmp2 = token.length() - tmp1;
+		memset(inputText, 0, 8);
+		memcpy(inputText, token.c_str() + tmp1, tmp2);
+		// 解密函数    
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_DECRYPT);
+		memcpy(tmp, outputText, 8);
+
+		for (int j = 0; j < 8; j++)
+			vecCleartext.push_back(tmp[j]);
+	}
+
+	clearText.clear();
+	clearText.assign(vecCleartext.begin(), vecCleartext.end());
+
+	if (clearText.substr(0, 8) == "WPFTIMER")
+	{
+		if (clearText.substr(7, clearText.length() - 7) == userName)
+			return true;
+	}
+	return false;
 }
 
 BOOL ValidateUser(string userName,string passWord,string& token)
@@ -231,7 +297,7 @@ BOOL ValidateUser(string userName,string passWord,string& token)
 		char* pw = (char*)mQuery.getColumn(2).getText();
 		if (passWord!=pw)
 		{
-			token=GenRsaPubEncrypt(userName, "asdfsdf");
+			token=GenToken(userName, "asdfsdf");
 			(*db).~Database();
 			return true;
 		}
@@ -613,31 +679,31 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 			switch (em->cmd)
 			{
 			case MP_TIMERCONTROLER_STOP:  //停止TimerController
-				if ((ValidateToken(em->USER_TOKEN)))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN,DES_KEY)))
 					serviceState->bRunning = false;
 				break;
 			case MP_TIMERCONTROLER_RESUME:  //继续TimerController
-				if ((ValidateToken(em->USER_TOKEN)))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)))
 					serviceState->bRunning = true;
 				break;
 			case MP_TIMERCONTROLER_RESET:  //重置TimerController
 				InitService();
 				break;
 			case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-				if ((ValidateToken(em->USER_TOKEN)) &(em->contextLength = 4))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)) &(em->contextLength = 4))
 				{
 					DWORD d;
-					memcpy(&d, em->context, 4);
+					memcpy(&d, em->context.c_str(), 4);
 					ATerminateProcess(d);
 				}
 				break;
 			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
 			{
-				if ((ValidateToken(em->USER_TOKEN)) & (em->contextLength = 8))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)) & (em->contextLength = 8))
 				{
 					DWORD d;
 					//processInformation* p
-					memcpy(&d, em->context, 4);
+					memcpy(&d, em->context.c_str(), 4);
 					void* p = new processInformation*;
 					memcpy(&d, p, 4);
 					QuerryProcessInformation((processInformation*)p, d);
@@ -652,7 +718,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 			break;
 			case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
 			{
-				if ((ValidateToken(em->USER_TOKEN)))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)))
 				{
 					PROCESSENTRY32 pe32;
 					// 在使用这个结构之前，先设置它的大小
