@@ -17,6 +17,7 @@
 #include "../Timer/pscmd.h"
 #include <fstream>
 #include "openssl/des.h"
+#include "../Timer/LogQueueClass.h"
 
 
 //#include <vector>
@@ -33,6 +34,9 @@ const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
 const int maxLogDataLen = 6000;
 const int logDateLong = 1;
+
+logQueueClass* logQueue = new logQueueClass();
+
 //服务状态;
 struct struServiceState {
 	bool bRunning;  //是否运行
@@ -50,18 +54,6 @@ struct processesID {
 	DWORD processID; //进程id
 	string processName; //进程名称
 	processesID* next;
-};
-struct struLogData {
-	DWORD cntThreads;
-	DWORD cntUsage;
-	DWORD dwFlags;
-	DWORD dwSize;
-	DWORD pcPriClassBase;
-	string szExeFile;
-	ULONG_PTR th32DefaultHeapID;
-	DWORD th32ModuleID;
-	DWORD th32ParentProcessID;
-	DWORD th32ProcessID;
 };
 
 //进程信息结构
@@ -136,6 +128,9 @@ static int logDataLen = 0;
 static WindowsTimer timerMoniteTimer, timerlogTimer;
 
 void InitService();//前置声明
+
+
+
 
 /*
 @brief : 公钥加密
@@ -273,17 +268,13 @@ BOOL ValidateUser(string userName,string passWord,string& token)
 	const char* DBPath = "user.db";
 	SQLite::Database* db;
 	try {
-		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
 	}
 	catch (std::exception& e)
 	{
 		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
-		try {
-			db = new SQLite::Database(DBPath, SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
-		}
-		catch (std::exception& e) {
-			return false;
-		}
+		return false;
+
 	}
 
 	if (!(*db).tableExists("USER"))
@@ -457,14 +448,14 @@ BOOL ATerminateProcess(DWORD wProcessID)
 
 	try
 	{
-		cout << "checkpoint 2" << endl;
+		std::cout << "checkpoint 2" << endl;
 
 		HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, wProcessID);
 		if (handle != NULL)
 		{
 			//EnableDebugPrivilege();
 			BOOL bResult = TerminateProcess(handle, 0);
-			cout << "Terminate result:" << bResult << endl;
+			std::cout << "Terminate result:" << bResult << endl;
 			CloseHandle(handle);
 		}
 		return true;
@@ -490,7 +481,7 @@ BOOL EnableDebugPrivilege()
 
 		AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL);
 		int a = GetLastError();
-		cout << "return code:" << a << endl;
+		std::cout << "return code:" << a << endl;
 		fOk = (a == ERROR_SUCCESS);
 		CloseHandle(hToken);
 	}
@@ -510,6 +501,40 @@ void LogThread() {
 	int a = GetLastError();
 	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
 	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+
+	const char* DBPath = "log.db";
+	SQLite::Database* db;
+	try {
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
+	}
+	catch (std::exception& e)
+	{
+		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+		return;
+
+	}
+
+	if (!(*db).tableExists("LOG"))
+	{
+		string sql;
+		sql = "select * from user where username from USER";
+		SQLite::Statement mQuery((*db), sql);
+
+
+		struLogData* log = logQueue->pop();
+		if (log != NULL && canLog)
+		{
+			sql = "insert into user(logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values" 
+				+ std::to_string(log->logTime)+std::to_string(log->cntThreads)+std::to_string(log->cntUsage)+std::to_string(log->dwFlags)+std::to_string(log->dwSize)
+				+std::to_string(log->pcPriClassBase)+log->szExeFile+std::to_string(log->th32DefaultHeapID)+std::to_string(log->th32ModuleID)+std::to_string(log->th32ParentProcessID)
+				+std::to_string(log->th32ProcessID);
+			(*db).exec(sql);
+			(*db).~Database();
+		}
+	}
+
+
+
 	if (logFileOpen && canLog)
 	{
 		logFile << endl << "**************************记录时间：" << dt << endl;
@@ -631,6 +656,7 @@ void LogThread() {
 //	}
 //	return 1;
 //}
+// 
 //主线程，负责与前端通信
 static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 {
@@ -659,11 +685,11 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 		//当有客户端进行连接时，事件变成有信号的状态
 		if (WaitForSingleObject(op.hEvent, INFINITE) == 0)
 		{
-			printf("client connect success!\n");
+			std::printf("client connect success!\n");
 		}
 		else
 		{
-			printf("client connect failed!\n");
+			std::printf("client connect failed!\n");
 		}
 		//连接成功后，进行通信，读写
 		char  buff[100];
@@ -727,7 +753,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 					if (hProcessSnap == INVALID_HANDLE_VALUE)
 					{
-						printf(" CreateToolhelp32Snapshot调用失败！ \n");
+						std::printf(" CreateToolhelp32Snapshot调用失败！ \n");
 						return 0;
 					}
 					processInformation* pProcessInformation;
@@ -839,7 +865,7 @@ void MoniteThread() {
 		HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 		if (hProcessSnap == INVALID_HANDLE_VALUE)
 		{
-			printf(" CreateToolhelp32Snapshot调用失败！ \n");
+			std::printf(" CreateToolhelp32Snapshot调用失败！ \n");
 			return;
 		}
 		//能否记录log
@@ -858,6 +884,7 @@ void MoniteThread() {
 		{
 			if (canLog)
 			{
+				logData[logDataLen].logTime = now;
 				logData[logDataLen].cntThreads = pe32.cntThreads;
 				logData[logDataLen].cntUsage = pe32.cntUsage;
 				logData[logDataLen].dwFlags = pe32.dwFlags;
@@ -873,7 +900,7 @@ void MoniteThread() {
 			//判断是否被监控进程
 			struct processInfo* process = FindMoniteProc(pe32.szExeFile);
 			if (process != NULL) {
-				cout << "finded" << endl;
+				std::cout << "finded" << endl;
 				//更新被监控进程实时信息
 				process->defaultHeapID = pe32.th32DefaultHeapID;
 				process->flags = pe32.dwFlags;
@@ -925,7 +952,7 @@ void MoniteThread() {
 				process->countOfProcessID = c2;
 				//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
 
-				printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
+				std::printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
 				process->ptrLastProcID++;
 				process->countOfProcessID++;
 				process->duration += moniteInterval / 1000;
@@ -954,13 +981,13 @@ void MoniteThread() {
 		processes* pointert = moniteProcesses;
 		for (int i = 0; i < maxMoniteProc; i++) {
 			if (pointert->ProcessInfo->processName == "msedge.exe") {
-				cout << "ProcessID2:  ";
+				std::cout << "ProcessID2:  ";
 				DWORD* pp1 = pointert->ProcessInfo->processesID;
 				for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
-					printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //测试
+					std::printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //测试
 					pp1 += 8;
 				}
-				cout << endl;
+				std::cout << endl;
 			}
 			pointert = pointert->next;
 		}
@@ -1018,7 +1045,7 @@ void MoniteThread() {
 			scanPtr = (*scanPtr).next;
 		}
 
-		cout << "checkpoint 3" << endl;
+		std::cout << "checkpoint 3" << endl;
 		//停止触及规定的进程
 
 		//HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
@@ -1043,7 +1070,7 @@ void MoniteThread() {
 		//		ptrThreadInfo = &(**ptrThreadInfo).next;
 		//	} while (::Thread32Next(hThreadSnap, &te32));
 		pointer = moniteProcesses;
-		cout << "checkpoint 1" << endl;
+		std::cout << "checkpoint 1" << endl;
 		while (pointer) {
 			//if ((*pointer).ProcessInfo->resetMode)
 
@@ -1092,7 +1119,8 @@ void MoniteThread() {
 void InitService()
 {
 	std::cout << "hello0" << std::endl;
-	printf("hello00");
+	std::printf("hello00");
+
 	DB::RuleService DBRS;
 	DB::TimeControllerRule* rule = new DB::TimeControllerRule();
 	DBRS.getRule(rule, 1);
@@ -1213,7 +1241,7 @@ void InitService()
 		if ((s = zip_source_file_create(newName.c_str(), 0, -1, zerror)) == NULL ||
 			zip_file_add(archive, newName.c_str(), s, ZIP_FL_ENC_UTF_8) < 0) {
 			zip_source_free(s);
-			printf("error adding file: %s\n", zip_strerror(archive));
+			std::printf("error adding file: %s\n", zip_strerror(archive));
 		}
 		if (zip_close(archive) == 0) DeleteFile(newName.c_str());
 		//CloseHandle(fh);

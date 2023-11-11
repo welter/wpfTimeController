@@ -25,6 +25,21 @@
         PCMDBUFFER_T commandLine;
         int commandLineSize;
     };
+    typedef struct struLogData {
+        time_t logTime;
+        DWORD cntThreads;
+        DWORD cntUsage;
+        DWORD dwFlags;
+        DWORD dwSize;
+        DWORD pcPriClassBase;
+        std::string szExeFile;
+        ULONG_PTR th32DefaultHeapID;
+        DWORD th32ModuleID;
+        DWORD th32ParentProcessID;
+        DWORD th32ProcessID;
+    };
+
+
     typedef struct exchangeMessage {
         std::string header = "WPFTIMER";
         std::string USERNAME;

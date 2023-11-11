@@ -176,7 +176,7 @@ namespace DB {
 		mQuery.bind(":programdirectory", rule->GetProgramDirectory());
 		mQuery.bind(":runpath", rule->GetRunPath());
 		mQuery.bind(":runmode", rule->GetRunMode());
-		struct timeval t;
+		//struct timeval t;
 		//t = rule->GetStartTime();
 		mQuery.bind(":starttime", rule->GetStartTime());
 		//mQuery.bind(":starttimeusec", t.tv_usec);
