@@ -32,7 +32,7 @@ const char* logFilePath = "/";
 const int moniteInterval = 5000;
 const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
-const int maxLogDataLen = 6000;
+//const int maxLogDataLen = 6000;
 const int logDateLong = 1;
 
 logQueueClass* logQueue = new logQueueClass();
@@ -123,7 +123,7 @@ struct threadInfo {
 static struct processes* moniteProcesses;// = new struct processes;  //需监视的进程
 static struct processesByRuleList* processesByRule[runModeCount];
 static int maxMoniteProc = 1;
-static struct struLogData* logData = new struLogData[maxLogDataLen];
+//static struct struLogData* logData = new struLogData[maxLogDataLen];
 static int logDataLen = 0;
 static WindowsTimer timerMoniteTimer, timerlogTimer;
 
@@ -277,7 +277,7 @@ BOOL ValidateUser(string userName,string passWord,string& token)
 
 	}
 
-	if (!(*db).tableExists("USER"))
+	if ((*db).tableExists("USER"))
 	{
 		const char* sql;
 		sql = "select * from user where username from USER";
@@ -514,70 +514,39 @@ void LogThread() {
 
 	}
 
-	if (!(*db).tableExists("LOG"))
+	if ((*db).tableExists("LOG"))
 	{
 		string sql;
-		sql = "select * from user where username from USER";
-		SQLite::Statement mQuery((*db), sql);
-
-
 		struLogData* log = logQueue->pop();
-		if (log != NULL && canLog)
+		while (log != NULL && canLog)
 		{
-			sql = "insert into user(logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values" 
+			sql = "insert into LOG(logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values" 
 				+ std::to_string(log->logTime)+std::to_string(log->cntThreads)+std::to_string(log->cntUsage)+std::to_string(log->dwFlags)+std::to_string(log->dwSize)
 				+std::to_string(log->pcPriClassBase)+log->szExeFile+std::to_string(log->th32DefaultHeapID)+std::to_string(log->th32ModuleID)+std::to_string(log->th32ParentProcessID)
 				+std::to_string(log->th32ProcessID);
 			(*db).exec(sql);
-			(*db).~Database();
+			log = logQueue->pop();
 		}
 	}
 
-
-
-	if (logFileOpen && canLog)
+	if ((*db).tableExists("PROCESSINFO"))
 	{
-		logFile << endl << "**************************记录时间：" << dt << endl;
-		for (int i = 0; i < logDataLen; i++)
+		string sql;
+		if (canLog)
 		{
-
-			if (logFileOpen)
-				logFile << logData[i].cntThreads << "  " << logData[i].cntUsage << "  " << logData[i].dwFlags << "   " << logData[i].dwSize << "  " << logData[i].pcPriClassBase
-				<< "  " << logData[i].szExeFile << "  " << logData[i].th32DefaultHeapID
-				<< "  " << logData[i].th32ModuleID << "  " << logData[i].th32ParentProcessID << "  " << logData[i].th32ProcessID << endl;
-		}
-		logFile << "**************-----------------------**************" << endl;
-	}
-	if (logFileOpen) logFile.close();
-	
-
-	if (datFileOpen && canLog)
-	{
-		datFile << maxMoniteProc << endl;
-		processes* pointer=moniteProcesses;
-		if (pointer && pointer->ProcessInfo) {
-			datFile << endl;
-			datFile.write(pointer->ProcessInfo->processName.c_str(), 255);
-				//datFile<<setw(255) << pointer->ProcessInfo->processName << endl;
-			datFile.write((char*) &(pointer->ProcessInfo->startTime), 8);
-			//datFile <<setw(8)<< pointer->ProcessInfo->startTime<<endl;
-			datFile.write((char*)&(pointer->ProcessInfo->lastRunTime), 8);
-			//datFile << setw(8) << pointer->ProcessInfo->lastRunTime << endl;
-			datFile.write((char*)&(pointer->ProcessInfo->duration), 8);
-			//datFile << setw(8) << pointer->ProcessInfo->duration << endl;
-			datFile.write((char*)&(pointer->ProcessInfo->curDuration), 8);
-			//datFile << setw(8) << pointer->ProcessInfo->curDuration << endl;
-			datFile.write((char*)&(pointer->ProcessInfo->runTimes), 8);
-			//datFile << setw(8) << pointer->ProcessInfo->runTimes << endl;
-			datFile.write((char*)&(pointer->ProcessInfo->isRunnig), 1);
-			//datFile << setw(1) << pointer->ProcessInfo->isRunnig << endl;
-			datFile.write((char*)&(pointer->ProcessInfo->resetMode), 1);
-			//datFile << setw(1) << pointer->ProcessInfo->resetMode << endl;
-			datFile.write("**!!**!!**!!\n",13);
-			pointer = pointer->next;
+			processes* pointer = moniteProcesses;
+			if (pointer && pointer->ProcessInfo) {
+				sql = "insert into PROCESSINFO(processName,startTime,lastRunTime,duration,curDuration,runTimes,isRunnig,resetMode) values"
+					+ pointer->ProcessInfo->processName + std::to_string(pointer->ProcessInfo->startTime) + std::to_string(pointer->ProcessInfo->lastRunTime) + std::to_string(pointer->ProcessInfo->duration) 
+					+ std::to_string(pointer->ProcessInfo->curDuration)	+ std::to_string(pointer->ProcessInfo->runTimes) + std::to_string(pointer->ProcessInfo->isRunnig)
+					+ std::to_string(pointer->ProcessInfo->resetMode) ;
+				(*db).exec(sql);
+			}
+			
 		}
 	}
-	if (datFileOpen) datFile.close();
+	if (db!=NULL)
+        (*db).~Database();
 	CloseHandle(hMutex);
 	hMutex = NULL;
 	return;
@@ -868,34 +837,33 @@ void MoniteThread() {
 			std::printf(" CreateToolhelp32Snapshot调用失败！ \n");
 			return;
 		}
-		//能否记录log
-		HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
-		BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
-		if (canLog)
-			logDataLen = 0;
-		else
-		{
-			CloseHandle(hMutex);
-			hMutex = NULL;
-		}
+
 		// 遍历进程快照
 		BOOL bMore = ::Process32First(hProcessSnap, &pe32);
 		while (bMore)
 		{
-			if (canLog)
+			//能否记录log
+			HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+			BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+			if (!canLog)
 			{
-				logData[logDataLen].logTime = now;
-				logData[logDataLen].cntThreads = pe32.cntThreads;
-				logData[logDataLen].cntUsage = pe32.cntUsage;
-				logData[logDataLen].dwFlags = pe32.dwFlags;
-				logData[logDataLen].dwSize = pe32.dwSize;
-				logData[logDataLen].pcPriClassBase = pe32.pcPriClassBase;
-				logData[logDataLen].szExeFile = pe32.szExeFile;
-				logData[logDataLen].th32DefaultHeapID = pe32.th32DefaultHeapID;
-				logData[logDataLen].th32ModuleID = pe32.th32ModuleID;
-				logData[logDataLen].th32ParentProcessID = pe32.th32ParentProcessID;
-				logData[logDataLen].th32ProcessID = pe32.th32ProcessID;
-				if (++logDataLen == maxLogDataLen) logDataLen = 0;
+				CloseHandle(hMutex);
+				hMutex = NULL;
+			}
+			else
+			{
+				struLogData* log=new struLogData;
+				(*log).logTime = now;
+				(*log).cntThreads = pe32.cntThreads;
+				(*log).cntUsage = pe32.cntUsage;
+				(*log).dwFlags = pe32.dwFlags;
+				(*log).pcPriClassBase = pe32.pcPriClassBase;
+				(*log).szExeFile = pe32.szExeFile;
+				(*log).th32DefaultHeapID = pe32.th32DefaultHeapID;
+				(*log).th32ModuleID = pe32.th32ModuleID;
+				(*log).th32ParentProcessID = pe32.th32ParentProcessID;
+				(*log).th32ProcessID = pe32.th32ProcessID;
+				logQueue->push(log);
 			}
 			//判断是否被监控进程
 			struct processInfo* process = FindMoniteProc(pe32.szExeFile);
