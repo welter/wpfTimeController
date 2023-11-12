@@ -281,17 +281,19 @@ BOOL ValidateUser(string userName,string passWord,string& token)
 	{
 		const char* sql;
 		sql = "select * from user where username from USER";
-		SQLite::Statement mQuery((*db), sql);
-		mQuery.bind(":USERNAME", userName);
-		if (mQuery.executeStep())
+		SQLite::Statement* mQuery= new SQLite::Statement((*db), sql);
+		(*mQuery).bind(":USERNAME", userName);
+		if ((*mQuery).executeStep())
 			(*db).exec(sql);
-		char* pw = (char*)mQuery.getColumn(2).getText();
+		char* pw = (char*)(*mQuery).getColumn(2).getText();
+		(*mQuery).~Statement();
 		if (passWord!=pw)
 		{
-			token=GenToken(userName, "asdfsdf");
+			token=GenToken(userName, "asdfsdf");			
 			(*db).~Database();
 			return true;
 		}
+
 	}
 	try {
 		(*db).~Database();
@@ -502,10 +504,10 @@ void LogThread() {
 	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
 	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
 
-	const char* DBPath = "log.db";
+	const char* DBPath = "log.s3db";
 	SQLite::Database* db;
 	try {
-		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
 	}
 	catch (std::exception& e)
 	{
@@ -536,10 +538,11 @@ void LogThread() {
 		{
 			processes* pointer = moniteProcesses;
 			if (pointer && pointer->ProcessInfo) {
-				sql = "insert into PROCESSINFO(processName,startTime,lastRunTime,duration,curDuration,runTimes,isRunnig,resetMode) values"
-					+ pointer->ProcessInfo->processName + std::to_string(pointer->ProcessInfo->startTime) + std::to_string(pointer->ProcessInfo->lastRunTime) + std::to_string(pointer->ProcessInfo->duration) 
-					+ std::to_string(pointer->ProcessInfo->curDuration)	+ std::to_string(pointer->ProcessInfo->runTimes) + std::to_string(pointer->ProcessInfo->isRunnig)
-					+ std::to_string(pointer->ProcessInfo->resetMode) ;
+				sql = "UPDATE PROCESSINFO SET processName="+ pointer->ProcessInfo->processName+", startTime=" + std::to_string(pointer->ProcessInfo->startTime)
+					+", lastRunTime=" + std::to_string(pointer->ProcessInfo->lastRunTime)+", duration="+ std::to_string(pointer->ProcessInfo->duration)
+					+", curDuration="+ std::to_string(pointer->ProcessInfo->curDuration)	+ ", runTimes="	+std::to_string(pointer->ProcessInfo->runTimes)+
+					", isRunnig="+std::to_string(pointer->ProcessInfo->isRunnig)+",TotalTime=" +std::to_string(pointer->ProcessInfo->TotalTime)
+					+ ", resetMode=" + std::to_string(pointer->ProcessInfo->resetMode);
 				(*db).exec(sql);
 			}
 			
@@ -786,9 +789,9 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 	// and exit if unsuccessful
 	if (!Thread32First(hThreadSnap, &te32))
 	{
-		//printError(TEXT("Thread32First")); // show cause of failure
+
 		CloseHandle(hThreadSnap);          // clean the snapshot object
-//		return(FALSE);
+
 	}
 
 	// Now walk the thread list of the system,
@@ -798,10 +801,7 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 	{
 		if (te32.th32OwnerProcessID == dwOwnerPID)
 		{
-			//_tprintf(TEXT("\n\n     THREAD ID      = 0x%08X"), te32.th32ThreadID);
-			//_tprintf(TEXT("\n     Base priority  = %d"), te32.tpBasePri);
-			//_tprintf(TEXT("\n     Delta priority = %d"), te32.tpDeltaPri);
-			//_tprintf(TEXT("\n"));
+
 			result.push_back(te32.th32ThreadID);
 		}
 	} while (Thread32Next(hThreadSnap, &te32));
@@ -882,13 +882,6 @@ void MoniteThread() {
 				process->parentProcessID = pe32.th32ParentProcessID;
 				process->priClassBase = pe32.pcPriClassBase;
 
-				/*process->processes->processID = pe32.th32ProcessID;
-				process->processes->processName = pe32.szExeFile;
-				process->processes->next = new struct processesID;
-				process->processes->next->processName = "---null";
-				process->processes->next->next = nullptr;*/
-
-
 				//记录该进程拥有的线程
 
 				vector <DWORD> p2;
@@ -918,7 +911,6 @@ void MoniteThread() {
 					process->ptrLastProcID++;
 				}
 				process->countOfProcessID = c2;
-				//cout << "ProcessID:" <<(byte) p[0]<< (byte)p[1] << (byte)p[2] << (byte)p[3] << (byte)p[4] << (byte)p[5] << (byte)p[6] << (byte) p[7]<<endl;  //测试
 
 				std::printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //测试
 				process->ptrLastProcID++;
@@ -931,16 +923,15 @@ void MoniteThread() {
 				//process->timeAfterPrevRun += moniteInterval/1000;
 				process->isRunnig = true;
 			}
-			//wprintf(L"Process Name is : %ls\n", pe32.szExeFile);
 
-			//printf(" Process ID is：%u \n\n", pe32.th32ProcessID);
 
 			bMore = ::Process32Next(hProcessSnap, &pe32);
-		}
-		if (hMutex) {
+			if (hMutex) {
 			CloseHandle(hMutex);
 			hMutex = NULL;
 		}
+		}
+
 		// 释放snapshot对象
 		::CloseHandle(hProcessSnap);
 
@@ -1015,28 +1006,6 @@ void MoniteThread() {
 
 		std::cout << "checkpoint 3" << endl;
 		//停止触及规定的进程
-
-		//HANDLE   hThreadSnap = INVALID_HANDLE_VALUE;
-		//THREADENTRY32   te32;
-		//hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-		//te32.dwSize = sizeof(THREADENTRY32);
-		//if (!Thread32First(hThreadSnap, &te32))
-		//{
-		//	int a = GetLastError();
-		//	CloseHandle(hThreadSnap);     // Must clean up the snapshot object!
-		//}
-		//else {
-
-		//	struct threadInfo* threadList = new struct threadInfo;
-		//	struct threadInfo** ptrThreadInfo = &threadList;
-		//	do
-		//	{
-		//		*ptrThreadInfo = new struct threadInfo;
-		//		(**ptrThreadInfo).ownerProcessID = te32.th32OwnerProcessID;
-		//		(**ptrThreadInfo).threadID = te32.th32ThreadID;
-		//		(**ptrThreadInfo).next = nullptr;
-		//		ptrThreadInfo = &(**ptrThreadInfo).next;
-		//	} while (::Thread32Next(hThreadSnap, &te32));
 		pointer = moniteProcesses;
 		std::cout << "checkpoint 1" << endl;
 		while (pointer) {
@@ -1091,6 +1060,9 @@ void InitService()
 
 	DB::RuleService DBRS;
 	DB::TimeControllerRule* rule = new DB::TimeControllerRule();
+	DBRS.openTable();
+	DBRS.closeTable();
+
 	DBRS.getRule(rule, 1);
 	rule->SetRuleName("2");
 	rule->SetProgramName("3");
@@ -1105,13 +1077,8 @@ void InitService()
 	rule->SetLimitRule(DB::LimitRule::g);
 	rule->SetTotalTime(30);
 	std::cout << "hello1" << std::endl;
-	//maxMoniteProc = DBRS.getRuleCount();
 	DB::TimeControllerRule*** rules = new DB::TimeControllerRule**;
 	DBRS.getAllRule(rules, maxMoniteProc);
-	//moniteProcesses = new  processes ** [maxMoniteProc];
-	//int modeCount[runModeCount];
-	//processes* prevNodeProcess = nullptr;
-	//processesByRuleList* prevNodeByRule[runModeCount] = { nullptr };
 	processesByRuleList** ptrNodeByRule[runModeCount];
 	for (int i = 0; i < runModeCount; i++)
 		ptrNodeByRule[i] = &processesByRule[i];
@@ -1138,17 +1105,11 @@ void InitService()
 		(**ptrNodeProcess).ProcessInfo->startTime = (*rules)[i]->GetStartTime();
 		//初始化被监视进程信息
 		(**ptrNodeProcess).ProcessInfo->runTimes = 0;
-		//(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
-		//(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
-		//(**ptrNodeProcess).ProcessInfo->processes->next = nullptr;
-		//(**ptrNodeProcess).ProcessInfo->timeAfterPrevRun = 0;
 		(**ptrNodeProcess).ProcessInfo->lastRunTime = -1;
 		(**ptrNodeProcess).ProcessInfo->duration = 0;
 		(**ptrNodeProcess).ProcessInfo->curDuration = 0;
 
 		for (int j = 0; j < runModeCount; j++) {
-			//prevNodeByRule = nullptr;
-			//curNodeByRule = processesByRule[j]=new struct processesByRuleList;
 			processesByRuleList* tempNodeByRule = new struct processesByRuleList;
 			(*tempNodeByRule).next = nullptr;
 			//添加进程指针到对应运行模式的监视列表中，模式通过runMode二进制位设置定义，详见common.h文件
@@ -1156,112 +1117,54 @@ void InitService()
 			{
 				(*tempNodeByRule).ProcessInfo = (**ptrNodeProcess).ProcessInfo;
 				(*tempNodeByRule).runMode = j;
-				//*(curNodeByRule[j]) = temp;
 				if (ptrNodeByRule[j])
 				{
 					(*ptrNodeByRule[j]) = tempNodeByRule;
 					ptrNodeByRule[j] = &(**ptrNodeByRule[j]).next;
-					//(*prevNodeByRule[j]).next = curNodeByRule[j];
-					//prevNodeByRule[j] = curNodeByRule[j];
-					//curNodeByRule[j] = new struct processesByRuleList;
 				}
 			}
 		}
-		//prevNodeProcess = curNodeProcess;
 		ptrNodeProcess = &(**ptrNodeProcess).next;
-		//curNodeProcess = new struct processes;
 		delete (*rules)[i];
 
 	}
-	//for (int i = 0; i < runModeCount; i++)
-	//	if (curNodeByRule[i]) delete curNodeByRule[i];
-	//if (curNodeProcess) delete curNodeProcess; 你
 	delete* rules;
 	delete rules;
-	time_t now = time(0);
-	tm* tmThatTime = _localtime64(&now);
-	char cThatTime[30];
-	memset(cThatTime, 0, 30);
-	sprintf(cThatTime, "%02d%02d%02d_%02dh%02dm%02ds", tmThatTime->tm_year - 100, tmThatTime->tm_mon + 1,
-		tmThatTime->tm_mday, tmThatTime->tm_hour, tmThatTime->tm_min, tmThatTime->tm_sec);
-	int error;
-	string archiveFileName = (string)logFileName + ".zip";
-	zip_t* archive = zip_open(archiveFileName.c_str(), ZIP_CREATE, &error);
-	int l = zip_get_num_files(archive);
-	for (int i = 0; i < l; i++)
-	{
-		string s = zip_get_name(archive, i, ZIP_FL_ENC_GUESS);
-		if (stoi(s.substr(4, 6), nullptr, 10) - stoi(((string)cThatTime).substr(0, 6), nullptr, 10) > logDateLong) {
-			zip_delete(archive, i);
-		}
-
+	const char* DBPath = "C:/Users/Administrator/source/repos/wpfTimeController/timeControllerService/DB/log.s3db";
+	SQLite::Database* db;
+	try {
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
 	}
-	WIN32_FIND_DATA* fd = new WIN32_FIND_DATA;
-	HANDLE fh;
-	string oldName = (string)logFileName + ".log";
-	if ((fh = FindFirstFile(oldName.c_str(), fd)) != INVALID_HANDLE_VALUE)
+	catch (std::exception& e)
 	{
 
-		string newName = (string)logFileName + (string)cThatTime + ".log";
-		rename(oldName.c_str(), newName.c_str());
-		zip_source_t* s;
-		zip_error_t* zerror = new zip_error_t;
-		if ((s = zip_source_file_create(newName.c_str(), 0, -1, zerror)) == NULL ||
-			zip_file_add(archive, newName.c_str(), s, ZIP_FL_ENC_UTF_8) < 0) {
-			zip_source_free(s);
-			std::printf("error adding file: %s\n", zip_strerror(archive));
-		}
-		if (zip_close(archive) == 0) DeleteFile(newName.c_str());
-		//CloseHandle(fh);
-	}
-	else	zip_close(archive);
+		return;
 
-	string s = procInfoDatFileName + ".dat";
-	fstream datFile(s, ios::in);
-	int a = GetLastError();
-	processInfo* p;
-	if (datFile.is_open()) {
-		int i;
-		char s[256] = { 0 };
-		char s2[8] = { 0 };
-		char s3[1] = { 0 };
-		datFile.getline(s, 255, '\n');
-		i = stoi(s);
-		long long d = 0;
-		byte b = 0;
-		long long* dp = &d;
-		byte* bp = &b;
-		for (int j = 0; j < i; j++)
+	}
+	processInfo* p;	
+	if ((*db).tableExists("PROCESSINFO"))
+	{
+		string sql = "SELECT * FROM PROCESSINFO";
+		SQLite::Statement* mQuery=new SQLite::Statement((*db), sql);
+		if ((*mQuery).executeStep())
 		{
-			datFile.getline(s, 255, '\n');
-			datFile.read(s, 255);
-			s[255] = '\0';
-			p = FindMoniteProc((string)s);
-			if (p) {
-				p->processName = s;
-				datFile.read((char*)&d, 8);
-				p->startTime = d;
-				datFile.read((char*)&d, 8);
-				p->lastRunTime = d;
-				datFile.read((char*)&d, 8);
-				p->duration = d;
-				datFile.read((char*)&d, 8);
-				p->curDuration = d;
-				datFile.read((char*)&d, 8);
-				p->runTimes = d;
-				datFile.read((char*)&b, 1);
-				p->isRunnig = b;
-				datFile.read((char*)&b, 1);
-				p->resetMode = b;
-				while (strlen(s) != 0 && strcmp(s, "**!!**!!**!!"))
+				p = FindMoniteProc((*mQuery).getColumn(1).getString());
+				if (p) 
 				{
-					datFile.getline(s, 255);
-					s[255] = '\0';
+					p->processName = (*mQuery).getColumn(1).getString();
+					p->startTime = (*mQuery).getColumn(2).getInt64();
+					p->lastRunTime = (*mQuery).getColumn(3).getInt64();
+					p->duration = (*mQuery).getColumn(4).getInt64();
+					p->curDuration = (*mQuery).getColumn(5).getInt64();
+					p->runTimes = (*mQuery).getColumn(6).getInt64();
+					p->isRunnig = (*mQuery).getColumn(7).getBytes();
+					p->TotalTime = (*mQuery).getColumn(8).getInt64();
+					p->resetMode = (*mQuery).getColumn(9).getBytes();
 				}
-			}
 		}
-		datFile.close();
 	}
+
+
 	timerMoniteTimer.setCallback(MoniteThread);
 	timerlogTimer.setCallback(LogThread);
 	timerMoniteTimer.start(moniteInterval, true);
@@ -1273,28 +1176,14 @@ int main(void)
 {
 	InitService();
 
-	//moniteThread();//仅一次性调用测试
-	//logThread();//仅一次性调用测试
+
 	OutputDebugString("hello");
 
 	//PMYDATA pDataArray;
 	DWORD   threadId;
 	HANDLE  threadHandle;
 
-		//pDataArray = (PMYDATA)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-		//	sizeof(MYDATA));
 
-		//if (pDataArray== NULL)
-		//{
-		//	ExitProcess(2);
-		//}
-
-		// Generate unique data for each thread to work with.
-
-		//pDataArray->val1 = 1;
-		//pDataArray->val2 = 101;
-
-		// Create the thread to begin execution on its own.
 
 	    threadHandle = CreateThread(
 			NULL,                   // default security attributes
@@ -1306,7 +1195,7 @@ int main(void)
 
 		if (threadHandle == NULL)
 		{
-			//ErrorHandler(TEXT("CreateThread"));
+
 			ExitProcess(3);
 		}
 		serviceState->bRunning = true;

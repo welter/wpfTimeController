@@ -12,10 +12,10 @@ namespace DB {
 
     class RuleService {
     private:
+          
+    public:
           bool openTable();
           bool closeTable();
-    public:
-        
           RuleService() =default;
           ~RuleService() =default;
           bool getRule(DB::TimeControllerRule* rule, const char* ruleName);
