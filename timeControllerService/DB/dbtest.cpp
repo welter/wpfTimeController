@@ -289,7 +289,7 @@ BOOL ValidateUser(string userName,string passWord,string& token)
 		(*mQuery).~Statement();
 		if (passWord!=pw)
 		{
-			token=GenToken(userName, "asdfsdf");			
+			token=GenToken(userName, "asdfsdf");
 			(*db).~Database();
 			return true;
 		}
