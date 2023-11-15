@@ -1,6 +1,5 @@
 cmake_minimum_required (VERSION 3.20)
 #find_package(unofficial-sqlite3 CONFIG REQUIRED)
-
 find_package(SQLiteCpp CONFIG REQUIRED)
 find_package(libzip CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -16,3 +15,5 @@ TARGET_LINK_LIBRARIES(dbtest PRIVATE "DB")
 TARGET_LINK_LIBRARIES(dbtest PRIVATE "Timer")
 target_link_libraries(dbtest PRIVATE "libzip::zip")
 target_link_libraries(dbtest PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+
+INSTALL(FILES log.s3db rule.db DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

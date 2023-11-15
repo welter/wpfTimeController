@@ -1130,7 +1130,7 @@ void InitService()
 	}
 	delete* rules;
 	delete rules;
-	const char* DBPath = "C:/Users/Administrator/source/repos/wpfTimeController/timeControllerService/DB/log.s3db";
+	const char* DBPath = "log.s3db";
 	SQLite::Database* db;
 	try {
 		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
