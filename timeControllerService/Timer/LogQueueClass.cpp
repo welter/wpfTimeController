@@ -4,6 +4,7 @@
 using namespace std;
 	logQueueClass::logQueueClass() {
 		head = nullptr;
+		tail = nullptr;
 	}
 	logQueueClass::~logQueueClass() {//采用头删法析构
 		if (!head) return;
@@ -17,6 +18,12 @@ using namespace std;
 		delete now;
 		now = nullptr;
 	}
+
+	void logQueueClass::Clear()
+	{
+		head = nullptr;
+		tail = nullptr;
+	}
 	logQueueClass::ListNode* logQueueClass::CreateNode(struLogData* value) {
 		ListNode* newNode = new ListNode;
 		newNode->logData = value;
@@ -27,15 +34,17 @@ using namespace std;
 	//推入数据（尾插）
 	void logQueueClass::push(struLogData* value) {
 		ListNode* newNode = CreateNode(value);
-		if (!head) {
+		if (!head) 
+		{
 			head = newNode;
+			tail = head;
 		}
 		else {
-			ListNode* temp = head;
-			while (temp->next) {
-				temp = temp->next;
+			if (tail)
+			{
+				tail->next = newNode;
+				tail = newNode;
 			}
-			temp->next = newNode;
 		}
 	}
 	//推出数据（头删）
@@ -61,12 +70,12 @@ using namespace std;
 		}
 	}
 	//查询队头
-	struLogData* logQueueClass::front() {
+	logQueueClass::ListNode* logQueueClass::front() {
 		if (!head) {
 			std::cout << "队列为空！！没有队头！！" << std::endl;
 			return NULL;
 		}
-		return head->logData;
+		return head;
 	}
 	//查询全部数据
 	void logQueueClass::select() {

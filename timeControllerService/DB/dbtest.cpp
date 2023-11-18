@@ -519,15 +519,16 @@ void LogThread() {
 	if ((*db).tableExists("LOG"))
 	{
 		string sql;
-		struLogData* log = logQueue->pop();
+		logQueueClass::ListNode* log = logQueue->front();
 		while (log != NULL && canLog)
 		{
+
 			sql = "insert into LOG(logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values" 
-				+ std::to_string(log->logTime)+","+std::to_string(log->cntThreads)+"," + std::to_string(log->cntUsage)+"," + std::to_string(log->dwFlags) + +","+std::to_string(log->dwSize)+"," + std::to_string(log->pcPriClassBase) +","+ log->szExeFile +"," 
-				+ std::to_string(log->th32DefaultHeapID)+"," + std::to_string(log->th32ModuleID)+"," + std::to_string(log->th32ParentProcessID)
-				+","+std::to_string(log->th32ProcessID);
+				+ std::to_string(log->logData->logTime)+std::to_string(log->logData->cntThreads)+std::to_string(log->logData->cntUsage)+std::to_string(log->logData->dwFlags)+std::to_string(log->logData->dwSize)
+				+std::to_string(log->logData->pcPriClassBase)+log->logData->szExeFile+std::to_string(log->logData->th32DefaultHeapID)+std::to_string(log->logData->th32ModuleID)+std::to_string(log->logData->th32ParentProcessID)
+				+std::to_string(log->logData->th32ProcessID);
 			(*db).exec(sql);
-			log = logQueue->pop();
+			log = log->next;
 		}
 	}
 
@@ -537,13 +538,11 @@ void LogThread() {
 		if (canLog)
 		{
 			processes* pointer = moniteProcesses;
-			(*db).exec("DELETE * FROM PROCESSINFO");//清空之前的记录
-			if (pointer && pointer->ProcessInfo) 
-			{
+			if (pointer && pointer->ProcessInfo) {
 				sql = "insert into PROCESSINFO (processName, startTime, lastRunTime, duration, curDuration, runTimes, isRunnig,TotalTime, resetMode) values" + pointer->ProcessInfo->processName + "," + std::to_string(pointer->ProcessInfo->startTime)
-					+"," + std::to_string(pointer->ProcessInfo->lastRunTime)+","+ std::to_string(pointer->ProcessInfo->duration)
-					+","+ std::to_string(pointer->ProcessInfo->curDuration)	+ ","	+std::to_string(pointer->ProcessInfo->runTimes)+
-					","+std::to_string(pointer->ProcessInfo->isRunnig)+"," +std::to_string(pointer->ProcessInfo->TotalTime)
+					+ "," + std::to_string(pointer->ProcessInfo->lastRunTime) + "," + std::to_string(pointer->ProcessInfo->duration)
+					+ "," + std::to_string(pointer->ProcessInfo->curDuration) + "," + std::to_string(pointer->ProcessInfo->runTimes) +
+					"," + std::to_string(pointer->ProcessInfo->isRunnig) + "," + std::to_string(pointer->ProcessInfo->TotalTime)
 					+ "," + std::to_string(pointer->ProcessInfo->resetMode);
 				(*db).exec(sql);
 				pointer = pointer->next;
