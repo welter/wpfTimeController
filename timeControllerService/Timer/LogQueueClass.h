@@ -17,7 +17,7 @@ public:
 	void Clear();//清除所有数据
 	ListNode* CreateNode(struLogData* value);
 	//推入数据（尾插）
-	void* push(struLogData* value);
+	void push(struLogData* value);
 	//推出数据（头删）
 	struLogData* pop();
 	//查询队头

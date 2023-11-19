@@ -503,7 +503,8 @@ void LogThread() {
 	int a = GetLastError();
 	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
 	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
-
+	HANDLE hMutexLoging = CreateMutex(nullptr, FALSE, "Loging");
+	BOOL isLoging = (GetLastError() != ERROR_ALREADY_EXISTS); //
 	const char* DBPath = "log.s3db";
 	SQLite::Database* db;
 	try {
@@ -516,18 +517,34 @@ void LogThread() {
 
 	}
 
-	if ((*db).tableExists("LOG"))
+	if ( isLoging &&((*db).tableExists("LOG")) )
 	{
 		string sql;
 		logQueueClass::ListNode* log = logQueue->front();
 		while (log != NULL && canLog)
 		{
 
-			sql = "insert into LOG(logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values" 
-				+ std::to_string(log->logData->logTime)+std::to_string(log->logData->cntThreads)+std::to_string(log->logData->cntUsage)+std::to_string(log->logData->dwFlags)+std::to_string(log->logData->dwSize)
-				+std::to_string(log->logData->pcPriClassBase)+log->logData->szExeFile+std::to_string(log->logData->th32DefaultHeapID)+std::to_string(log->logData->th32ModuleID)+std::to_string(log->logData->th32ParentProcessID)
-				+std::to_string(log->logData->th32ProcessID);
-			(*db).exec(sql);
+			sql = "insert into LOG (logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values (" 
+				+ std::string("\'") + std::to_string(log->logData->logTime) + std::string("\'") + ", " + std::string("\'") + std::to_string(log->logData->cntThreads) + std::string("\'")
+				+ ", " + std::string("\'")	+ std::to_string(log->logData->cntUsage) + std::string("\'") + ", " + std::string("\'") +std::to_string(log->logData->dwFlags) 
+				+ std::string("\'") + "," + std::string("\'")+std::to_string(log->logData->dwSize) + std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->pcPriClassBase)
+				+ std::string("\'") + "," + std::string("\'")+log->logData->szExeFile + std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32DefaultHeapID)
+				+ std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32ModuleID)+ std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32ParentProcessID) 
+				+ std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32ProcessID) + std::string("\')");
+			//(*db).exec(sql);
+			try {
+				db->exec(sql);
+			}
+			catch (std::exception& e)
+			{
+				if (db != NULL)
+					(*db).~Database();
+				CloseHandle(hMutexLoging);
+				hMutexLoging = NULL;
+				CloseHandle(hMutex);
+				hMutex = NULL;
+				return;
+			}
 			log = log->next;
 		}
 	}
@@ -539,12 +556,14 @@ void LogThread() {
 		{
 			processes* pointer = moniteProcesses;
 			if (pointer && pointer->ProcessInfo) {
-				sql = "insert into PROCESSINFO (processName, startTime, lastRunTime, duration, curDuration, runTimes, isRunnig,TotalTime, resetMode) values" + pointer->ProcessInfo->processName + "," + std::to_string(pointer->ProcessInfo->startTime)
-					+ "," + std::to_string(pointer->ProcessInfo->lastRunTime) + "," + std::to_string(pointer->ProcessInfo->duration)
-					+ "," + std::to_string(pointer->ProcessInfo->curDuration) + "," + std::to_string(pointer->ProcessInfo->runTimes) +
-					"," + std::to_string(pointer->ProcessInfo->isRunnig) + "," + std::to_string(pointer->ProcessInfo->TotalTime)
-					+ "," + std::to_string(pointer->ProcessInfo->resetMode);
-				(*db).exec(sql);
+				sql = "insert into PROCESSINFO (processName, startTime, lastRunTime, duration, curDuration, runTimes, isRunnig,TotalTime, resetMode) values (" 
+					+ std::string("\'")+pointer->ProcessInfo->processName + std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->startTime) + std::string("\'")
+					+ "," + std::string("\'") + std::to_string(pointer->ProcessInfo->lastRunTime) + std::string("\'") + "," + std::string("\'") 
+					+ std::to_string(pointer->ProcessInfo->duration) + std::string("\'")+ "," + std::string("\'") + std::to_string(pointer->ProcessInfo->curDuration) 
+					+ std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->runTimes) + std::string("\'") +"," + std::string("\'") 
+					+ std::to_string(pointer->ProcessInfo->isRunnig) + std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->TotalTime)
+					+ std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->resetMode) + std::string("\')");
+				db->exec(sql);
 				pointer = pointer->next;
 			}
 			
@@ -552,6 +571,8 @@ void LogThread() {
 	}
 	if (db!=NULL)
         (*db).~Database();
+	CloseHandle(hMutexLoging);
+	hMutexLoging = NULL;
 	CloseHandle(hMutex);
 	hMutex = NULL;
 	return;
@@ -813,6 +834,22 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 }
 
 void MoniteThread() {
+	HANDLE mRunningMutex = CreateMutex(NULL, TRUE, "Running");
+	if (mRunningMutex)
+	{
+		if (ERROR_ALREADY_EXISTS == GetLastError())
+		{
+			printf("线程已经在运行中了,退出!\n");
+			CloseHandle(mRunningMutex);
+			return;
+		}
+	}
+	else
+	{
+		printf("创建互斥量错误 退出!\n");
+		CloseHandle(mRunningMutex);
+		return;
+	}
 	if (serviceState->bRunning)
 	{
 		//将被监控程序信息默认为未运行、不需停止；清空processid；
@@ -839,22 +876,23 @@ void MoniteThread() {
 			std::printf(" CreateToolhelp32Snapshot调用失败！ \n");
 			return;
 		}
-
+		//能否记录log
+		HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+		BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+		if (!canLog)
+		{
+			CloseHandle(hMutex);
+			hMutex = NULL;
+		}
+		else
+			logQueue->Clear();
 		// 遍历进程快照
 		BOOL bMore = ::Process32First(hProcessSnap, &pe32);
 		while (bMore)
 		{
-			//能否记录log
-			HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
-			BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
-			if (!canLog)
+			if (canLog)
 			{
-				CloseHandle(hMutex);
-				hMutex = NULL;
-			}
-			else
-			{
-				struLogData* log=new struLogData;
+				struLogData* log = new struLogData;
 				(*log).logTime = now;
 				(*log).cntThreads = pe32.cntThreads;
 				(*log).cntUsage = pe32.cntUsage;
@@ -1053,6 +1091,7 @@ void MoniteThread() {
 
 		return;
 	}
+	CloseHandle(mRunningMutex);
 };
 
 void InitService()
@@ -1164,9 +1203,13 @@ void InitService()
 					p->resetMode = (*mQuery).getColumn(9).getBytes();
 				}
 		}
+		if (mQuery)
+			(*mQuery).~Statement();
+
 	}
 
-
+	if (db != NULL)
+		(*db).~Database();
 	timerMoniteTimer.setCallback(MoniteThread);
 	timerlogTimer.setCallback(LogThread);
 	timerMoniteTimer.start(moniteInterval, true);
