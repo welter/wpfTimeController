@@ -563,7 +563,21 @@ void LogThread() {
 					+ std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->runTimes) + std::string("\'") +"," + std::string("\'") 
 					+ std::to_string(pointer->ProcessInfo->isRunnig) + std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->TotalTime)
 					+ std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->resetMode) + std::string("\')");
-				db->exec(sql);
+				try
+				{
+					db->exec(sql);
+				}
+				catch (std::exception& e)
+				{
+					if (db != NULL)
+						(*db).~Database();
+					CloseHandle(hMutexLoging);
+					hMutexLoging = NULL;
+					CloseHandle(hMutex);
+					hMutex = NULL;
+					return;
+				}
+
 				pointer = pointer->next;
 			}
 			
@@ -813,7 +827,8 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 	if (!Thread32First(hThreadSnap, &te32))
 	{
 
-		CloseHandle(hThreadSnap);          // clean the snapshot object
+		CloseHandle(hThreadSnap);  // clean the snapshot object
+		return result;
 
 	}
 
@@ -828,8 +843,13 @@ vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
 			result.push_back(te32.th32ThreadID);
 		}
 	} while (Thread32Next(hThreadSnap, &te32));
-
-	CloseHandle(hThreadSnap);
+	try {
+		CloseHandle(hThreadSnap);
+	}
+	catch (std::exception e)
+	{
+		return result;
+	}
 	return(result);
 }
 
@@ -1174,7 +1194,7 @@ void InitService()
 	const char* DBPath = "log.s3db";
 	SQLite::Database* db;
 	try {
-		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
 	}
 	catch (std::exception& e)
 	{
@@ -1183,6 +1203,14 @@ void InitService()
 
 	}
 	processInfo* p;	
+	try 
+	{
+		(*db).tableExists("PROCESSINFO");
+	}
+	catch(std::exception& e)
+	{
+		return;
+	}
 	if ((*db).tableExists("PROCESSINFO"))
 	{
 		string sql = "SELECT * FROM PROCESSINFO";
