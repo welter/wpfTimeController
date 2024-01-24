@@ -16,8 +16,8 @@
     const unsigned char MP_TIMERCONTROLER_GetPROCESSES = 9;//获取当前所有进程信息
     const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION = 10;//返回进程信息
     const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATIONS = 11;//返回多个进程信息
-
-    const std::string DES_KEY = "asdfasdfsadfasdf";
+    const char testToken[16] = { 0x30,0x92,0x73,0xc4,0x06,0x8b,0x8d,0xeb,0x52,0x74,0x0c,0x6c,0xeb,0x28,0x8f,0x85 }; 
+    const std::string DES_KEY = "asdfasdf";
 
     typedef struct processInformation {
 		PROCESS_MEMORY_COUNTERS* pmc;
@@ -45,7 +45,6 @@
         std::string USERNAME;
         std::string USER_TOKEN;
         int cmd;
-        int contextLength;
         std::string context;
     };
 namespace DB {

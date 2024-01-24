@@ -34,6 +34,9 @@ const int intervalAsNextRun = 20;//相隔多少时间当做两次运行，单位秒
 const int runModeCount = 6;
 //const int maxLogDataLen = 6000;
 const int logDateLong = 1;
+const LPCSTR serverNamePipe = "\\\\.\\pipe\\TimerConttroller";
+const int returnMessageSec = 1;
+
 
 logQueueClass* logQueue = new logQueueClass();
 
@@ -257,7 +260,7 @@ BOOL ValidateToken(const std::string& userName,const std::string& token,const st
 
 	if (clearText.substr(0, 8) == "WPFTIMER")
 	{
-		if (clearText.substr(7, clearText.length() - 7) == userName)
+		if (strcmp(clearText.substr(8, clearText.length() - 8).c_str(), userName.c_str())==0)
 			return true;
 	}
 	return false;
@@ -443,6 +446,68 @@ BOOL QuerryProcessInformation(processInformation* pmPm,DWORD processId)
 
 	CloseHandle(hProcess);
 	return true;
+}
+
+
+int CommuToServerNamePipe(exchangeMessage* writeMessage,exchangeMessage* readMessage)
+{
+	HANDLE hPipe = NULL;
+	//char  szBuffer[BUF_SIZE] = { 0 };
+	DWORD dwReturn = 0;
+	string s;
+	int lenOFStringType = sizeof(s);
+	// 判断是否有可以利用的命名管道 
+	if (!WaitNamedPipe(serverNamePipe, NMPWAIT_USE_DEFAULT_WAIT))
+	{
+		cout << "No Read Pipe Accessible" << endl;
+		return 0;
+	}
+
+	// 打开可用的命名管道 , 并与服务器端进程进行通信 
+	hPipe = CreateFile(serverNamePipe, GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL, OPEN_EXISTING, 0, NULL);
+
+	if (hPipe == INVALID_HANDLE_VALUE)
+	{
+		cout << "Open Read Pipe Error" << endl;
+		return 0;
+	}
+
+	cout << "Wait for the message" << endl;
+
+
+
+	// 向服务端发送数据
+
+	if (!WriteFile(hPipe, writeMessage, sizeof(*writeMessage), &dwReturn, NULL))
+	{
+		cout << "Write Failed" << endl;
+	}
+
+
+	
+	clock_t delay = returnMessageSec * CLOCKS_PER_SEC;
+	clock_t start = clock();
+		
+
+	// 读取服务端发来的数据
+	//等待管道回传消息(returnMessageSec秒)
+	while (clock() - start < delay) 
+	{
+		if (ReadFile(hPipe, readMessage, sizeof(*readMessage), &dwReturn, NULL))
+		{
+			exit;
+		}
+		else
+		{
+			cout << "Read Failed or no data" << endl;
+		}
+	}
+
+	CloseHandle(hPipe);
+	return 0;
+
 }
 
 BOOL ATerminateProcess(DWORD wProcessID)
@@ -669,11 +734,13 @@ void LogThread() {
 //主线程，负责与前端通信
 static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 {
-
-	HANDLE hNamedPipe = CreateNamedPipeA("\\\\.\\pipe\\testName",
+	exchangeMessage* em;
+	em = new exchangeMessage;
+	HANDLE hNamedPipe = CreateNamedPipeA(serverNamePipe,
 		PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
 		PIPE_TYPE_BYTE, 1, 1024, 1024, 0, NULL);
 	//检查是否创建成功
+
 	if (hNamedPipe == INVALID_HANDLE_VALUE)
 	{
 		::printf("create named pipe failed!\n");
@@ -685,6 +752,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 	//异步IO结构
 	OVERLAPPED op;
 	ZeroMemory(&op, sizeof(OVERLAPPED));
+
 	//创建一个事件内核对象
 	op.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	while (1)
@@ -701,14 +769,13 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 			std::printf("client connect failed!\n");
 		}
 		//连接成功后，进行通信，读写
-		char  buff[100];
-		exchangeMessage* em;
-		sprintf_s(buff, 100, "test message from server!");
-		DWORD cbWrite;
-		WriteFile(hNamedPipe, buff, strlen(buff), &cbWrite, NULL);
 
-		ZeroMemory(buff, 100);
-		ReadFile(hNamedPipe, em, 100, &cbWrite, NULL);
+		DWORD cbWrite;
+		//WriteFile(hNamedPipe, buff, strlen(buff), &cbWrite, NULL);
+
+		//ZeroMemory(buff, 100);
+
+		ReadFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
 		if (em->header == "WPFTIMER")
 		{
 			switch (em->cmd)
@@ -722,10 +789,11 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 					serviceState->bRunning = true;
 				break;
 			case MP_TIMERCONTROLER_RESET:  //重置TimerController
-				InitService();
+				if ((ValidateToken(em->USERNAME, em->USER_TOKEN, DES_KEY)))
+					InitService();
 				break;
 			case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)) &(em->contextLength = 4))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)))
 				{
 					DWORD d;
 					memcpy(&d, em->context.c_str(), 4);
@@ -734,7 +802,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 				break;
 			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
 			{
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)) & (em->contextLength = 8))
+				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)) )
 				{
 					DWORD d;
 					//processInformation* p
@@ -745,9 +813,9 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 					em->header = "test message from server!";
 					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
 					em->context = (char*)&p;
-					em->contextLength = sizeof(&p);
+					//em->contextLength = sizeof(&p);
 					//sprintf_s(em, 100, "test message from server!");
-					WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
+					WriteFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
 				}
 			}
 			break;
@@ -781,9 +849,9 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 					em->header = "test message from server!";
 					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
 					em->context = (char*)pProcessInformation;
-					em->contextLength = sizeof(pProcessInformation);
+					//em->contextLength = sizeof(pProcessInformation);
 					//sprintf_s(em, 100, "test message from server!");
-					WriteFile(hNamedPipe, em, 100, &cbWrite, NULL);
+					WriteFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
 				}
 				break;
 			}
@@ -801,6 +869,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 	}
 	//关闭管道
 	CloseHandle(hNamedPipe);
+	free(em);
 	return 1;
 
 }
@@ -1249,12 +1318,15 @@ int main(void)
 {
 	InitService();
 
-
+	std::cout << "hello11111" << std::endl;
 	OutputDebugString("hello");
 
 	//PMYDATA pDataArray;
 	DWORD   threadId;
 	HANDLE  threadHandle;
+	exchangeMessage* wb, * rb;
+	wb = new exchangeMessage;
+	rb = new exchangeMessage;
 
 
 
@@ -1275,16 +1347,26 @@ int main(void)
 	while (true)
 	{
 		bool isIdle = true;
+
 		if (KEYDOWN(VK_ESCAPE)) // 按ESC退出,非阻塞模式，每次循环不会停留在这
 			return -1;
 		if (isIdle && KEYDOWN(0x41))  //按“A”键
 		{
 			isIdle = false;
+			int byteReaded;
 			MSG msg;
 			msg.message = WM_TIMECONTROLLER;
 			WPARAM wParam = NULL;
 			LPARAM lParam = NULL;
-			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			byteReaded = sizeof(exchangeMessage);
+			(*wb).cmd = MP_TIMERCONTROLER_TERMINATEPROC;
+			(*wb).USERNAME = "WELTER";
+			(*wb).USER_TOKEN=string(testToken,16);
+			(*wb).context = "000";
+			
+			
+			//PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			CommuToServerNamePipe(wb,rb);
 			isIdle = true;
 		}
 		if (isIdle && KEYDOWN(0x42))  //按“B”键
@@ -1309,4 +1391,6 @@ int main(void)
 		}
 		::Sleep(1000);
 	}
+	free(wb);
+	free(rb);
 }
