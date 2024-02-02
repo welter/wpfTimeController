@@ -16,7 +16,7 @@
     const unsigned char MP_TIMERCONTROLER_GetPROCESSES = 9;//获取当前所有进程信息
     const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION = 10;//返回进程信息
     const unsigned char MP_TIMERCONTROLER_RETURN_PROCESSINFORMATIONS = 11;//返回多个进程信息
-    const char testToken[16] = { 0x30,0x92,0x73,0xc4,0x06,0x8b,0x8d,0xeb,0x52,0x74,0x0c,0x6c,0xeb,0x28,0x8f,0x85 }; 
+    const char testToken[16] = { '\x30','\x92','\x73','\xc4','\x06','\x8b','\x8d','\xeb','\x52','\x74','\x0c','\x6c','\xeb','\x28','\x8f','\x85'};
     const std::string DES_KEY = "asdfasdf";
 
     typedef struct processInformation {
@@ -41,11 +41,13 @@
 
 
     typedef struct exchangeMessage {
-        std::string header = "WPFTIMER";
-        std::string USERNAME;
-        std::string USER_TOKEN;
+        PCHAR  header = "WPFTIMER";
+        PCHAR USERNAME;
+        int LEN_USER_TOKEN;
+        PCHAR USER_TOKEN;
         int cmd;
-        std::string context;
+        int LEN_CONTEXT;
+        PCHAR context;
     };
 namespace DB {
     const unsigned char rmSpecifiedTime = 0b00000001;//在指定的时间段运行

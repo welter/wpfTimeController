@@ -776,44 +776,44 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 		//ZeroMemory(buff, 100);
 
 		ReadFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
-		if (em->header == "WPFTIMER")
+		if (strcmp(em->header , "WPFTIMER")==0)
 		{
 			switch (em->cmd)
 			{
 			case MP_TIMERCONTROLER_STOP:  //停止TimerController
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN,DES_KEY)))
+				if ((ValidateToken(string(em->USERNAME),string(em->USER_TOKEN,em->LEN_USER_TOKEN),DES_KEY)))
 					serviceState->bRunning = false;
 				break;
 			case MP_TIMERCONTROLER_RESUME:  //继续TimerController
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)))
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
 					serviceState->bRunning = true;
 				break;
 			case MP_TIMERCONTROLER_RESET:  //重置TimerController
-				if ((ValidateToken(em->USERNAME, em->USER_TOKEN, DES_KEY)))
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
 					InitService();
 				break;
 			case MP_TIMERCONTROLER_TERMINATEPROC:  //结束进程
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)))
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
 				{
 					DWORD d;
-					memcpy(&d, em->context.c_str(), 4);
+					memcpy(&d, em->context, 4);
 					ATerminateProcess(d);
 				}
 				break;
 			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //查询进程信息
 			{
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)) )
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)) )
 				{
 					DWORD d;
 					//processInformation* p
-					memcpy(&d, em->context.c_str(), 4);
+					memcpy(&d, em->context, 4);
 					void* p = new processInformation*;
 					memcpy(&d, p, 4);
 					QuerryProcessInformation((processInformation*)p, d);
-					em->header = "test message from server!";
+					//em->header = "test message from server!";
 					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
 					em->context = (char*)&p;
-					//em->contextLength = sizeof(&p);
+					em->LEN_CONTEXT = sizeof(&p);
 					//sprintf_s(em, 100, "test message from server!");
 					WriteFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
 				}
@@ -821,7 +821,7 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 			break;
 			case MP_TIMERCONTROLER_GetPROCESSES://获取当前所有进程信息
 			{
-				if ((ValidateToken(em->USERNAME,em->USER_TOKEN, DES_KEY)))
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
 				{
 					PROCESSENTRY32 pe32;
 					// 在使用这个结构之前，先设置它的大小
@@ -846,8 +846,9 @@ static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
 							vectorProcessInformation.push_back(pProcessInformation);
 						bMore = ::Process32Next(hProcessSnap, &pe32);
 					}
-					em->header = "test message from server!";
+					//em->header = "test message from server!";
 					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+					em->LEN_CONTEXT = sizeof(pProcessInformation);
 					em->context = (char*)pProcessInformation;
 					//em->contextLength = sizeof(pProcessInformation);
 					//sprintf_s(em, 100, "test message from server!");
@@ -1353,16 +1354,23 @@ int main(void)
 		if (isIdle && KEYDOWN(0x41))  //按“A”键
 		{
 			isIdle = false;
-			int byteReaded;
-			MSG msg;
-			msg.message = WM_TIMECONTROLLER;
-			WPARAM wParam = NULL;
-			LPARAM lParam = NULL;
-			byteReaded = sizeof(exchangeMessage);
+			//int byteReaded;
+			//MSG msg;
+			//msg.message = WM_TIMECONTROLLER;
+			//WPARAM wParam = NULL;
+			//LPARAM lParam = NULL;
+			//byteReaded = sizeof(exchangeMessage);
+			//(*wb).header = (PCHAR)malloc(8);
+			//scanf((*wb).header, "WPFTIMER");
 			(*wb).cmd = MP_TIMERCONTROLER_TERMINATEPROC;
-			(*wb).USERNAME = "WELTER";
-			(*wb).USER_TOKEN=string(testToken,16);
-			(*wb).context = "000";
+			(*wb).USERNAME =(PCHAR) malloc(7);
+			strcpy((*wb).USERNAME ,"WELTER\0");
+			(*wb).LEN_USER_TOKEN = sizeof(testToken);
+			(*wb).USER_TOKEN = (PCHAR)malloc(sizeof(testToken));
+			strncpy((*wb).USER_TOKEN, testToken,(*wb).LEN_USER_TOKEN);
+			(*wb).LEN_CONTEXT = 3;
+			(*wb).context = (PCHAR)malloc(3);
+			strncpy((*wb).context, "333",3);
 			
 			
 			//PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
