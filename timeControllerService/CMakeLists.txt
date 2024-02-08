@@ -24,13 +24,19 @@ include(C:/vcpkg/scripts/buildsystems/vcpkg.cmake)
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 
 	# 添加源文件，生成可执行文件
-	add_executable (timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h")
+	add_executable (timeControllerServiceInstaller WIN32 "timeControllerServiceInstaller.cpp" "timeControllerServiceInstaller.h")
+	add_executable (timeControllerService "timeControllerService.cpp" "timeControllerService.h")
 	# add_executable(timeControllerService WIN32 "timeControllerService.cpp" "timeControllerService.h"  ${STDAFX_PCH_C} "Protocol/targetver.h" )
 	# 添加链接库	
-	
+	#find_package(SQLiteCpp CONFIG REQUIRED)
+	find_package(libzip CONFIG REQUIRED)
+	find_package(OpenSSL REQUIRED)
 	add_subdirectory("DB")
 	find_package(SQLiteCpp CONFIG REQUIRED)
-	target_link_libraries(timeControllerService PRIVATE SQLiteCpp DB Timer)
+
+	target_link_libraries(timeControllerServiceInstaller PRIVATE SQLiteCpp DB Timer)
+	target_include_directories(timeControllerService PUBLIC C:/vcpkg/installed/x64-windows/include)
+	TARGET_LINK_LIBRARIES(timeControllerService PRIVATE SQLiteCpp DB Timer libzip::zip OpenSSL::SSL OpenSSL::Crypto)
 # 此处是关键，添加我们在msvcpch.cmake定义的宏
 	#USE_MSVC_PCH(timeControllerService stdafx.h ${STDAFX_PCH_C})
 endif ()

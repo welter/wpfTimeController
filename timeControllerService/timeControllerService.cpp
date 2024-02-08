@@ -1,460 +1,1404 @@
-Ôªø// timeControllerService.cpp: ÂÆö‰πâÂ∫îÁî®Á®ãÂ∫èÁöÑÂÖ•Âè£ÁÇπ„ÄÇ
-//
-
-#include "timeControllerService.h"
-
-// ServiceTest.cpp : Defines the entry point for the application.
-//
-#include <fcntl.h>
-#include <io.h>
-#include "Protocol/stdafx.h"
-#include "stdio.h"
-#include "tchar.h"
 #include <windows.h>
-#include<iostream>
+#include <WinUser.h>
+#include <TlHelp32.h>
 #include "DB/common.h"
+#include <conio.h>
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <Psapi.h>
+#pragma comment(lib,"Psapi.lib")
+#include <WinBase.h>
 #include "DB/RuleModel.h"
+#include "Timer/Timer.h"
 #include "DB/RuleService.h"
+#include <zip.h>
+#include <tchar.h>
+#include "Timer/pscmd.h"
+#include <fstream>
+#include "openssl/des.h"
+#include "Timer/LogQueueClass.h"
 
 
-using namespace DB;
+//#include <vector>
 using namespace std;
 
-//SQLite::Statement   query(db, "SELECT * FROM test WHERE size > ?");
+#define KEYDOWN( vk ) ( 0x8000 & ::GetAsyncKeyState( vk ) ) 
+const int WM_TIMECONTROLLER = RegisterWindowMessage(_T("TIMECONTROLLER"));
 
-//ÂÆö‰πâÂÖ®Â±ÄÂáΩÊï∞ÂèòÈáè
-void Init();
-BOOL IsInstalled();
-BOOL Install();
-BOOL Uninstall();
-void LogEvent(LPCTSTR pszFormat, ...);
-void WINAPI ServiceMain();
-void WINAPI ServiceStrl(DWORD dwOpcode);
-
-
-
-void startConsoleWin(int width, int height, char* fname);
-BOOL ConsoleScanf(char* fmt, int& len);
-BOOL ConsolePrintf(char* fmt, ...);
+const string logFileName = "test";
+const string procInfoDatFileName = "procinfo";
+const char* logFilePath = "/";
+const int moniteInterval = 5000;
+const int intervalAsNextRun = 20;//œ‡∏Ù∂‡…Ÿ ±º‰µ±◊ˆ¡Ω¥Œ‘À––£¨µ•Œª√Î
+const int runModeCount = 6;
+//const int maxLogDataLen = 6000;
+const int logDateLong = 1;
+const LPCSTR serverNamePipe = "\\\\.\\pipe\\TimerConttroller";
+const int returnMessageSec = 1;
 
 
+logQueueClass* logQueue = new logQueueClass();
 
-TCHAR szServiceName[] = _T("ServiceTest");
-BOOL bInstall;
-SERVICE_STATUS_HANDLE hServiceStatus;
-SERVICE_STATUS status;
-DWORD dwThreadID;
+//∑˛ŒÒ◊¥Ã¨;
+struct struServiceState {
+	bool bRunning;  // «∑Ò‘À––
+	struct struLoggedUser {
+		string sUsername;
+		DWORD dwUserID;
+		DWORD dwUserUUID;
+		struLoggedUser* next;
+	};
+};
+static struServiceState* serviceState=new struServiceState;
 
-int APIENTRY WinMain(
-    _In_ HINSTANCE hInstance,
-    _In_opt_ HINSTANCE hPrevInstance,
-    _In_ LPSTR     lpCmdLine,
-    _In_ int       nCmdShow)
+//Õ¨√˚Ω¯≥ÃºØΩ·ππ
+struct processesID {
+	DWORD processID; //Ω¯≥Ãid
+	string processName; //Ω¯≥Ã√˚≥∆
+	processesID* next;
+};
+
+//Ω¯≥Ã–≈œ¢Ω·ππ
+struct processInfo {
+
+	DWORD   id;//Œ®“ª÷˜ID
+
+
+	//¥”œµÕ≥ µ ±ªÒ»°
+	DWORD   size;
+	DWORD   usage;
+	//DWORD   processID;          // this process
+	ULONG_PTR  defaultHeapID;
+	DWORD   moduleID;           // associated exe
+	DWORD   threads;
+	DWORD   parentProcessID;    // this process's parent process
+	LONG    priClassBase;         // Base priority of process's threads
+	DWORD   flags;
+
+
+	//¥”πÊ‘Úø‚÷–ªÒ»°
+	int dbID;  //πÊ‘Úø‚ID
+	int runMode;
+	int times;
+	string ProgramTitle;
+	string ProgramDirectory;
+	string RunPath;
+	time_t PerPeriodTime;
+	time_t Interval;
+	time_t TotalTime;
+	unsigned char LimitRule;
+	string  processName;
+	time_t startTime;
+	time_t endTime;
+
+
+	//∏˘æ›œµÕ≥–≈œ¢‘ÀÀ„ªÒ»°
+	//struct processesID* processes;
+	DWORD* processesID = new DWORD{ 0 };
+	DWORD* ptrLastProcID = &(processesID[0]);
+	byte countOfProcessID = 0;
+	time_t lastRunTime;
+	time_t duration;
+	time_t curDuration;
+	//time_t timeAfterPrevRun;
+	int runTimes;
+	bool isRunnig;
+	byte resetMode;
+};
+struct processes {
+	struct processInfo* ProcessInfo;
+	struct processes* next;
+};
+
+//∞¥‘À––ƒ£ Ω∑÷¿‡µƒ–Ëº‡ ”Ω¯≥ÃºØ∫œ
+struct processesByRuleList { 
+	int runMode;  //‘À––ƒ£ Ω
+	struct processInfo* ProcessInfo;
+	struct processesByRuleList* next;
+};
+
+struct threadInfo {
+	int threadID;
+	int ownerProcessID;
+	threadInfo* next;
+};
+static struct processes* moniteProcesses;// = new struct processes;  //–Ëº‡ ”µƒΩ¯≥Ã
+static struct processesByRuleList* processesByRule[runModeCount];
+static int maxMoniteProc = 1;
+//static struct struLogData* logData = new struLogData[maxLogDataLen];
+static int logDataLen = 0;
+static WindowsTimer timerMoniteTimer, timerlogTimer;
+
+void InitService();//«∞÷√…˘√˜
+
+
+
+
+/*
+@brief : π´‘øº”√‹
+@para  : clearText  -[i] –Ë“™Ω¯––º”√‹µƒ√˜Œƒ
+		 pub_key     -[i] π´‘ø
+@return: º”√‹∫Ûµƒ ˝æ›
+**/
+std::string GenToken(const std::string& userName, const std::string& key)
 {
-    Init();
+	std::string cipherText; // √‹Œƒ    
+	std::string clearText = "WPFTIMER" + userName;
+	DES_cblock keyEncrypt;
+	memset(keyEncrypt, 0, 8);
 
+	// ππ‘Ï≤π∆Î∫Ûµƒ**    
+	if (key.length() <= 8)
+		memcpy(keyEncrypt, key.c_str(), key.length());
+	else
+		memcpy(keyEncrypt, key.c_str(), 8);
 
+	// **÷√ªª    
+	DES_key_schedule keySchedule;
+	DES_set_key_unchecked(&keyEncrypt, &keySchedule);
 
-    //startConsoleWin(80,24,"test");
-    //ConsolePrintf("%d%s", 10, "haha\n");
-    //char* ch = new char[1024];
-    //int len = 0;
-    //
+	// —≠ª∑º”√‹£¨√ø8◊÷Ω⁄“ª¥Œ    
+	const_DES_cblock inputText;
+	DES_cblock outputText;
+	std::vector<unsigned char> vecCiphertext;
+	unsigned char tmp[8];
 
-    dwThreadID = ::GetCurrentThreadId();
+	for (int i = 0; i < clearText.length() / 8; i++)
+	{
+		memcpy(inputText, clearText.c_str() + i * 8, 8);
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_ENCRYPT);
+		memcpy(tmp, outputText, 8);
 
-    SERVICE_TABLE_ENTRY st[] =
-    {
-        { szServiceName, (LPSERVICE_MAIN_FUNCTION)ServiceMain },
-        { NULL, NULL }
-    };
+		for (int j = 0; j < 8; j++)
+			vecCiphertext.push_back(tmp[j]);
+	}
 
-    if (_stricmp(lpCmdLine, "/install") == 0)
-    {
-        Install();
-    }
-    else if (_stricmp(lpCmdLine, "/uninstall") == 0)
-    {
-        Uninstall();
-    }
-    else
-    {
-        if (!::StartServiceCtrlDispatcher(st))
-        {
-            LogEvent(_T("Register Service Main Function Error!"));
-        }
-    }
+	if (clearText.length() % 8 != 0)
+	{
+		int tmp1 = clearText.length() / 8 * 8;
+		int tmp2 = clearText.length() - tmp1;
+		memset(inputText, 0, 8);
+		memcpy(inputText, clearText.c_str() + tmp1, tmp2);
+		// º”√‹∫Ø ˝    
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_ENCRYPT);
+		memcpy(tmp, outputText, 8);
 
-    return 0;
-}
-//*********************************************************
-//Functiopn:            Init
-//Description:            ÂàùÂßãÂåñ
-//Calls:                main
-//Called By:                
-//Table Accessed:                
-//Table Updated:                
-//Input:                
-//Output:                
-//Return:                
-//Others:                
-//History:                
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-void Init()
-{
-    hServiceStatus = NULL;
-    status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-    status.dwCurrentState = SERVICE_STOPPED;
-    status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
-    status.dwWin32ExitCode = 0;
-    status.dwServiceSpecificExitCode = 0;
-    status.dwCheckPoint = 0;
-    status.dwWaitHint = 0;
-}
+		for (int j = 0; j < 8; j++)
+			vecCiphertext.push_back(tmp[j]);
+	}
 
-//*********************************************************
-//Functiopn:            ServiceMain
-//Description:            ÊúçÂä°‰∏ªÂáΩÊï∞ÔºåËøôÂú®ÈáåËøõË°åÊéßÂà∂ÂØπÊúçÂä°ÊéßÂà∂ÁöÑÊ≥®ÂÜå
-//Calls:
-//Called By:
-//Table Accessed:
-//Table Updated:
-//Input:
-//Output:
-//Return:
-//Others:
-//History:
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-void WINAPI ServiceMain()
-{
-    // Register the control request handler
-    status.dwCurrentState = SERVICE_START_PENDING;
-    status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+	cipherText.clear();
+	cipherText.assign(vecCiphertext.begin(), vecCiphertext.end());
 
-    //db.~Database();
-    //query.bind(1, 6);
-    //Ê≥®ÂÜåÊúçÂä°ÊéßÂà∂
-    hServiceStatus = RegisterServiceCtrlHandler(szServiceName, ServiceStrl);
-    if (hServiceStatus == NULL)
-    {
-        LogEvent(_T("Handler not installed"));
-        return;
-    }
-    SetServiceStatus(hServiceStatus, &status);
+	return cipherText;
 
-    status.dwWin32ExitCode = S_OK;
-    status.dwCheckPoint = 0;
-    status.dwWaitHint = 0;
-    status.dwCurrentState = SERVICE_RUNNING;
-    SetServiceStatus(hServiceStatus, &status);
-    char* s = "g:\\tmp\\test.db";
-    char* s2 = "";
-    DB::RuleService ruleDB;
-    DB::TimeControllerRule* rule = new DB::TimeControllerRule();
-    try {
-        ruleDB.getRule(rule,1);
-    }
-    catch (std::exception& e)
-    {
-        //ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
-        LogEvent(_T( e.what()));
-        exit(1);
-    }
-    //Ê®°ÊãüÊúçÂä°ÁöÑËøêË°åÔºå10ÂêéËá™Âä®ÈÄÄÂá∫„ÄÇÂ∫îÁî®Êó∂Â∞Ü‰∏ªË¶Å‰ªªÂä°Êîæ‰∫éÊ≠§Âç≥ÂèØ
-    int i = 0;
-
-    while (i < 10)
-    {
-
-
-        //Êñ∞Âª∫Êñá‰ª∂
-
-        FILE* fp0;
-        if (fopen_s(&fp0, "c:/tt.txt", "a"))
-            return ;
-
-        fclose(fp0);
-        Sleep(10000);
-        i++;
-    }
-    //
-
-    status.dwCurrentState = SERVICE_STOPPED;
-    SetServiceStatus(hServiceStatus, &status);
-    LogEvent(_T("Service stopped"));
-}
-
-//*********************************************************
-//Functiopn:            ServiceStrl
-//Description:            ÊúçÂä°ÊéßÂà∂‰∏ªÂáΩÊï∞ÔºåËøôÈáåÂÆûÁé∞ÂØπÊúçÂä°ÁöÑÊéßÂà∂Ôºå
-//                        ÂΩìÂú®ÊúçÂä°ÁÆ°ÁêÜÂô®‰∏äÂÅúÊ≠¢ÊàñÂÖ∂ÂÆÉÊìç‰ΩúÊó∂ÔºåÂ∞Ü‰ºöËøêË°åÊ≠§Â§Ñ‰ª£Á†Å
-//Calls:
-//Called By:
-//Table Accessed:
-//Table Updated:
-//Input:                dwOpcodeÔºöÊéßÂà∂ÊúçÂä°ÁöÑÁä∂ÊÄÅ
-//Output:
-//Return:
-//Others:
-//History:
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-void WINAPI ServiceStrl(DWORD dwOpcode)
-{
-    switch (dwOpcode)
-    {
-    case SERVICE_CONTROL_STOP:
-        status.dwCurrentState = SERVICE_STOP_PENDING;
-        SetServiceStatus(hServiceStatus, &status);
-        PostThreadMessage(dwThreadID, WM_CLOSE, 0, 0);
-        break;
-    case SERVICE_CONTROL_PAUSE:
-        break;
-    case SERVICE_CONTROL_CONTINUE:
-        break;
-    case SERVICE_CONTROL_INTERROGATE:
-        break;
-    case SERVICE_CONTROL_SHUTDOWN:
-        break;
-    default:
-        LogEvent(_T("Bad service request"));
-    }
-}
-//*********************************************************
-//Functiopn:            IsInstalled
-//Description:            Âà§Êñ≠ÊúçÂä°ÊòØÂê¶Â∑≤ÁªèË¢´ÂÆâË£Ö
-//Calls:
-//Called By:
-//Table Accessed:
-//Table Updated:
-//Input:
-//Output:
-//Return:
-//Others:
-//History:
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-BOOL IsInstalled()
-{
-    BOOL bResult = FALSE;
-
-    //ÊâìÂºÄÊúçÂä°ÊéßÂà∂ÁÆ°ÁêÜÂô®
-    SC_HANDLE hSCM = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-
-    if (hSCM != NULL)
-    {
-        //ÊâìÂºÄÊúçÂä°
-        SC_HANDLE hService = ::OpenService(hSCM, szServiceName, SERVICE_QUERY_CONFIG);
-        if (hService != NULL)
-        {
-            bResult = TRUE;
-            ::CloseServiceHandle(hService);
-        }
-        ::CloseServiceHandle(hSCM);
-    }
-    return bResult;
 }
 
-//*********************************************************
-//Functiopn:            Install
-//Description:            ÂÆâË£ÖÊúçÂä°ÂáΩÊï∞
-//Calls:
-//Called By:
-//Table Accessed:
-//Table Updated:
-//Input:
-//Output:
-//Return:
-//Others:
-//History:
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-BOOL Install()
+//“‘Ω¯≥Ã√˚‘⁄º‡øÿ∂”¡–÷–≤È’“Ω¯≥Ã
+//≤Œ ˝£∫proceName£¨Ω¯≥Ã√˚
+//∑µªÿ£∫’“µΩµƒΩ¯≥Ã‘⁄º‡øÿ∂”¡–÷–÷∏’Î£¨»Ù√ª’“µΩ∑µªÿø’÷∏’Î°£
+struct processInfo* FindMoniteProc(string procName) {
+	struct processes* pointer = moniteProcesses;
+	while (pointer) {
+		if ((*pointer).ProcessInfo->processName == procName) return (*pointer).ProcessInfo;
+		else
+			pointer = (*pointer).next;
+	}
+	return nullptr;
+}
+//—È÷§token”––ß–‘
+//≤Œ ˝token:–Ë—È÷§µƒtoken
+//∑µªÿ£∫true,”––ß,false,Œﬁ–ß
+BOOL ValidateToken(const std::string& userName,const std::string& token,const std::string& key)
+
 {
-    if (IsInstalled())
-        return TRUE;
+	std::string clearText; // √˜Œƒ    
 
-    //ÊâìÂºÄÊúçÂä°ÊéßÂà∂ÁÆ°ÁêÜÂô®
-    SC_HANDLE hSCM = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (hSCM == NULL)
-    {
-        MessageBox(NULL, _T("Couldn't open service manager"), szServiceName, MB_OK);
-        return FALSE;
-    }
+	DES_cblock keyEncrypt;
+	memset(keyEncrypt, 0, 8);
 
-    // Get the executable file path
-    TCHAR szFilePath[MAX_PATH];
-    ::GetModuleFileName(NULL, szFilePath, MAX_PATH);
+	if (key.length() <= 8)
+		memcpy(keyEncrypt, key.c_str(), key.length());
+	else
+		memcpy(keyEncrypt, key.c_str(), 8);
 
-    //ÂàõÂª∫ÊúçÂä°
-    SC_HANDLE hService = ::CreateService(
-        hSCM, szServiceName, szServiceName,
-        SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
-        SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
-        szFilePath, NULL, NULL, _T(""), NULL, NULL);
+	DES_key_schedule keySchedule;
+	DES_set_key_unchecked(&keyEncrypt, &keySchedule);
 
-    if (hService == NULL)
-    {
-        ::CloseServiceHandle(hSCM);
-        MessageBox(NULL, _T("Couldn't create service"), szServiceName, MB_OK);
-        return FALSE;
-    }
+	const_DES_cblock inputText;
+	DES_cblock outputText;
+	std::vector<unsigned char> vecCleartext;
+	unsigned char tmp[8];
 
-    ::CloseServiceHandle(hService);
-    ::CloseServiceHandle(hSCM);
-    return TRUE;
+	for (int i = 0; i < token.length() / 8; i++)
+	{
+		memcpy(inputText, token.c_str() + i * 8, 8);
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_DECRYPT);
+		memcpy(tmp, outputText, 8);
+
+		for (int j = 0; j < 8; j++)
+			vecCleartext.push_back(tmp[j]);
+	}
+
+	if (token.length() % 8 != 0)
+	{
+		int tmp1 = token.length() / 8 * 8;
+		int tmp2 = token.length() - tmp1;
+		memset(inputText, 0, 8);
+		memcpy(inputText, token.c_str() + tmp1, tmp2);
+		// Ω‚√‹∫Ø ˝    
+		DES_ecb_encrypt(&inputText, &outputText, &keySchedule, DES_DECRYPT);
+		memcpy(tmp, outputText, 8);
+
+		for (int j = 0; j < 8; j++)
+			vecCleartext.push_back(tmp[j]);
+	}
+
+	clearText.clear();
+	clearText.assign(vecCleartext.begin(), vecCleartext.end());
+
+	if (clearText.substr(0, 8) == "WPFTIMER")
+	{
+		if (strcmp(clearText.substr(8, clearText.length() - 8).c_str(), userName.c_str())==0)
+			return true;
+	}
+	return false;
 }
 
-//*********************************************************
-//Functiopn:            Uninstall
-//Description:            Âà†Èô§ÊúçÂä°ÂáΩÊï∞
-//Calls:
-//Called By:
-//Table Accessed:
-//Table Updated:
-//Input:
-//Output:
-//Return:
-//Others:
-//History:
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-BOOL Uninstall()
+BOOL ValidateUser(string userName,string passWord,string& token)
 {
-    if (!IsInstalled())
-        return TRUE;
+	const char* DBPath = "user.db";
+	SQLite::Database* db;
+	try {
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READONLY);
+	}
+	catch (std::exception& e)
+	{
+		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+		return false;
 
-    SC_HANDLE hSCM = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+	}
 
-    if (hSCM == NULL)
-    {
-        MessageBox(NULL, _T("Couldn't open service manager"), szServiceName, MB_OK);
-        return FALSE;
-    }
+	if ((*db).tableExists("USER"))
+	{
+		const char* sql;
+		sql = "select * from user where username from USER";
+		SQLite::Statement* mQuery= new SQLite::Statement((*db), sql);
+		(*mQuery).bind(":USERNAME", userName);
+		if ((*mQuery).executeStep())
+			(*db).exec(sql);
+		char* pw = (char*)(*mQuery).getColumn(2).getText();
+		(*mQuery).~Statement();
+		if (passWord!=pw)
+		{
+			token=GenToken(userName, "asdfsdf");
+			(*db).~Database();
+			return true;
+		}
 
-    SC_HANDLE hService = ::OpenService(hSCM, szServiceName, SERVICE_STOP | DELETE);
+	}
+	try {
+		(*db).~Database();
+		return false;
+	}
+	catch (std::exception& e)
+	{
+		return false;
+	}
 
-    if (hService == NULL)
-    {
-        ::CloseServiceHandle(hSCM);
-        MessageBox(NULL, _T("Couldn't open service"), szServiceName, MB_OK);
-        return FALSE;
-    }
-    SERVICE_STATUS status;
-    ::ControlService(hService, SERVICE_CONTROL_STOP, &status);
-
-    //Âà†Èô§ÊúçÂä°
-    BOOL bDelete = ::DeleteService(hService);
-    ::CloseServiceHandle(hService);
-    ::CloseServiceHandle(hSCM);
-
-    if (bDelete)
-        return TRUE;
-
-    LogEvent(_T("Service could not be deleted"));
-    return FALSE;
 }
 
-//*********************************************************
-//Functiopn:            LogEvent
-//Description:            ËÆ∞ÂΩïÊúçÂä°‰∫ã‰ª∂
-//Calls:
-//Called By:
-//Table Accessed:
-//Table Updated:
-//Input:
-//Output:
-//Return:
-//Others:
-//History:
-//            <author>niying <time>2006-8-10        <version>        <desc>
-//*********************************************************
-void LogEvent(LPCTSTR pFormat, ...)
+// WCHAR ◊™ªªŒ™ std::string
+//≤Œ ˝£∫pwszSrc,WCHAR¿‡–Õ ˝÷µ
+//∑µªÿ£∫œ‡”¶µƒstd::string¿‡–Õ ˝÷µ
+string WCHAR2String(LPCWSTR pwszSrc)
 {
-    TCHAR    chMsg[256];
-    HANDLE  hEventSource;
-    LPTSTR  lpszStrings[1];
-    va_list pArg;
+	int nLen = WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, NULL, 0, NULL, NULL);
+	if (nLen <= 0)
+		return std::string("");
 
-    va_start(pArg, pFormat);
+	char* pszDst = new char[nLen];
+	if (NULL == pszDst)
+		return string("");
 
-    _vstprintf_s(chMsg, pFormat, pArg);
-    va_end(pArg);
+	WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, pszDst, nLen, NULL, NULL);
+	pszDst[nLen - 1] = 0;
 
-    lpszStrings[0] = chMsg;
+	std::string strTmp(pszDst);
+	delete[] pszDst;
 
-    hEventSource = RegisterEventSource(NULL, szServiceName);
-    if (hEventSource != NULL)
-    {
-        ReportEvent(hEventSource, EVENTLOG_INFORMATION_TYPE, 0, 0, NULL, 1, 0, (LPCTSTR*)&lpszStrings[0], NULL);
-        DeregisterEventSource(hEventSource);
-    }
+	return strTmp;
 }
 
-#ifdef _DEBUG
-HANDLE __hStdOut = NULL;
-HANDLE __hStdIn = NULL;
-#endif
-
-
-void startConsoleWin(int width, int height, char* fname)
+//ªÒ»°Ω¯≥ÃID◊È£®processIDGroup£©÷∏∂®–Ú∫≈µƒΩ¯≥Ãid
+//processIDGroup Ω¯≥Ã◊È
+//num–Ë“™ªÒ»°µƒΩ¯≥ÃID–Ú∫≈
+//count±∏”√£¨Ω¯≥Ã◊È≥§∂»
+DWORD GetProcessID(DWORD* const processIDGroup, byte& num, byte count)
 {
-#ifdef _DEBUG
-    AllocConsole();
-    SetConsoleTitle("Debug Window");
-    __hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    __hStdIn = GetStdHandle(STD_INPUT_HANDLE);
-
-
-    COORD co = { width,height };
-    SetConsoleScreenBufferSize(__hStdOut, co);
-
-#endif
+	if (count > num) {
+		byte* p = new byte[8];
+		DWORD offset = num << 3;
+		//DWORD result;
+		//p =(byte*) &result;
+		*p = processIDGroup[offset];
+		offset++;
+		p[1] = processIDGroup[offset];
+		offset++;
+		p[2] = processIDGroup[offset];
+		offset++;
+		p[3] = processIDGroup[offset];
+		offset++;
+		p[4] = processIDGroup[offset];
+		offset++;
+		p[5] = processIDGroup[offset];
+		offset++;
+		p[6] = processIDGroup[offset];
+		offset++;
+		p[7] = processIDGroup[offset];
+		offset++;
+		//byte* rest = new byte[(--restLength) * 8];
+		//strncpy((char*)rest, (char*)(*processIDGroup + 8), restLength * 8);
+		//delete[](*processIDGroup);
+		//*processIDGroup = rest;
+		DWORD result = *((DWORD*)p);
+		delete[] p;
+		num++;
+		return result;
+	}
+	else {
+		//		*processIDGroup = nullptr;
+		return 0;
+	}
 }
 
-BOOL ConsoleScanf(char* fmt, int& len)
+//÷ÿ÷√∑Ω Ω
+const byte rsNone = 0;  //≤ª÷ÿ÷√
+const byte rsAll =1;  //÷ÿ÷√»´≤ø
+const byte rsRuntimes = 2;  //÷ÿ÷√‘À––¥Œ ˝
+const byte rsDuration = 4;  //÷ÿ÷√◊‹‘À––≥÷–¯ ±º‰
+const byte rsCurDuration = 8;  //÷ÿ÷√±æ¥Œ≥÷–¯ ±º‰
+const byte rsTerminate = 16;  //ÕÀ≥ˆ
+
+void ResetProc(processInfo* proc,byte mode)
 {
-#ifdef _DEBUG
+	if (proc) {
+		if (mode == rsAll)
+		{
+			proc->resetMode = rsNone;
+			proc->runTimes = 0;
+			//(**ptrNodeProcess).ProcessInfo->processes = new struct processesID;
+			//(**ptrNodeProcess).ProcessInfo->processes->processName = "---null";
+			//(**ptrNodeProcess).ProcessInfo->processes->next = nullptr;
+			//(**ptrNodeProcess).ProcessInfo->timeAfterPrevRun = 0;
+			proc->lastRunTime = -1;
+			proc->duration = 0;
+			proc->curDuration = 0;
+		}
+		if(mode==rsRuntimes)
+			proc->runTimes = 0;
+		if (mode == rsDuration)
+			proc->duration = 0;
+		if (mode == rsCurDuration)
+			proc->curDuration = 0;
+		if (mode == rsTerminate)
+			proc->resetMode = rsNone;
+		}
+	}
 
-    DWORD cCharsRead = 1024;
-    BOOL flag = false;
+BOOL QuerryProcessInformation(processInformation* pmPm,DWORD processId)
+{
+	HANDLE hProcess;
+	processInformation pm = *pmPm;
+	//PROCESS_MEMORY_COUNTERS pmc=pm.pmc;
+	hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+		PROCESS_VM_READ,
+		FALSE, processId);
+	if (NULL == hProcess)
+		return false;
 
-    if (__hStdOut)
-        flag = ReadConsole(__hStdIn, fmt, 1024, (DWORD*)&len, NULL);
+	if (!(GetProcessMemoryInfo(hProcess, pm.pmc, sizeof(pm.pmc))))
+	{
+		return false;
+	}
+	SIZE_T nCommandLineSize = NULL;
+	if (GetProcessCommandLine(hProcess, NULL, NULL, &nCommandLineSize)) // Ω´ lpcBuffer ∫Õ nSize …Ë÷√Œ™ NULL “‘ªÒ»°Ω®“Èª∫≥Â«¯¥Û–°£®nCommandLineSize£©
+	{
+		/* ‘⁄∂—…œ∑÷≈‰Ω®“È¥Û–°µƒ Unicode ª∫≥Â«¯ */
+		PCMDBUFFER_T lpUnicodeBuffer = (PCMDBUFFER_T)malloc(nCommandLineSize);
+		if (lpUnicodeBuffer)
+		{
+			/*  π”√ memset£®ªÚ WINAPI ZeroMemory£©Ω´∑÷≈‰µƒ Unicode ª∫≥Â«¯≥ı ºªØŒ™ zero */
+			memset(lpUnicodeBuffer, NULL, nCommandLineSize);
+			// ZeroMemory(lpUnicodeBuffer, nCommandLineSize);
 
-    if (flag)
-    {
-        fmt[len] = 0;
-    }
+			/* ‘Ÿ¥Œµ˜”√  GetProcessCommandLine ≤¢¥´»ÎÀ˘∑÷≈‰µƒ Unicode ª∫≥Â«¯£¨“‘»°µ√ µº  ˝æ› */
+			if (GetProcessCommandLine(hProcess, lpUnicodeBuffer, nCommandLineSize, &nCommandLineSize))
+			{
+				/* nCommandLineSize µƒ÷µµ±«∞Œ™ GetProcessCommandLine  µº ∏¥÷∆µΩ Uniocde ª∫≥Â«¯ lpUnicodeBuffer ÷–µƒ◊÷Ω⁄ ˝£¨∏¥÷∆µΩ ‰≥ˆ */
+				pm.commandLine = lpUnicodeBuffer;
+				pm.commandLineSize = nCommandLineSize;
+			}
 
-    return true;
-#else
-    return false;
-#endif
+		}
+	}
+
+	CloseHandle(hProcess);
+	return true;
 }
 
 
-BOOL ConsolePrintf(char* fmt, ...)
+int CommuToServerNamePipe(exchangeMessage* writeMessage,exchangeMessage* readMessage)
 {
-#ifdef _DEBUG
-    char s[300];
-    va_list argptr;
+	HANDLE hPipe = NULL;
+	//char  szBuffer[BUF_SIZE] = { 0 };
+	DWORD dwReturn = 0;
+	string s;
+	int lenOFStringType = sizeof(s);
+	// ≈–∂œ «∑Ò”–ø…“‘¿˚”√µƒ√¸√˚π‹µ¿ 
+	if (!WaitNamedPipe(serverNamePipe, NMPWAIT_USE_DEFAULT_WAIT))
+	{
+		cout << "No Read Pipe Accessible" << endl;
+		return 0;
+	}
 
-    BOOL flag = false;
+	// ¥Úø™ø…”√µƒ√¸√˚π‹µ¿ , ≤¢”Î∑˛ŒÒ∆˜∂ÀΩ¯≥ÃΩ¯––Õ®–≈ 
+	hPipe = CreateFile(serverNamePipe, GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL, OPEN_EXISTING, 0, NULL);
 
-    va_start(argptr, fmt);
-    vsprintf(s, fmt, argptr);
-    va_end(argptr);
+	if (hPipe == INVALID_HANDLE_VALUE)
+	{
+		cout << "Open Read Pipe Error" << endl;
+		return 0;
+	}
 
-    DWORD cCharsWritten;
+	cout << "Wait for the message" << endl;
 
-    if (__hStdOut)
-        flag = WriteConsole(__hStdOut, s, strlen(s), &cCharsWritten, NULL);
 
-    return flag;
-#else
-    return FALSE;
-#endif
+
+	// œÚ∑˛ŒÒ∂À∑¢ÀÕ ˝æ›
+
+	if (!WriteFile(hPipe, writeMessage, sizeof(*writeMessage), &dwReturn, NULL))
+	{
+		cout << "Write Failed" << endl;
+	}
+
+
+	
+	clock_t delay = returnMessageSec * CLOCKS_PER_SEC;
+	clock_t start = clock();
+		
+
+	// ∂¡»°∑˛ŒÒ∂À∑¢¿¥µƒ ˝æ›
+	//µ»¥˝π‹µ¿ªÿ¥´œ˚œ¢(returnMessageSec√Î)
+	while (clock() - start < delay) 
+	{
+		if (ReadFile(hPipe, readMessage, sizeof(*readMessage), &dwReturn, NULL))
+		{
+			exit;
+		}
+		else
+		{
+			cout << "Read Failed or no data" << endl;
+		}
+	}
+
+	CloseHandle(hPipe);
+	return 0;
+
+}
+
+BOOL ATerminateProcess(DWORD wProcessID)
+{
+
+	try
+	{
+		std::cout << "checkpoint 2" << endl;
+
+		HANDLE handle = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, wProcessID);
+		if (handle != NULL)
+		{
+			//EnableDebugPrivilege();
+			BOOL bResult = TerminateProcess(handle, 0);
+			std::cout << "Terminate result:" << bResult << endl;
+			CloseHandle(handle);
+		}
+		return true;
+	}
+	catch (exception err)
+	{
+		return false; 
+	}
+
+}
+
+BOOL EnableDebugPrivilege()
+
+{
+	HANDLE hToken;
+	BOOL fOk = FALSE;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
+	{
+		TOKEN_PRIVILEGES tp;
+		tp.PrivilegeCount = 1;
+		LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &tp.Privileges[0].Luid);
+		tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+		AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL);
+		int a = GetLastError();
+		std::cout << "return code:" << a << endl;
+		fOk = (a == ERROR_SUCCESS);
+		CloseHandle(hToken);
+	}
+	return fOk;
+}
+
+//»’º«º«¬ºœﬂ≥Ã
+void LogThread() {
+	time_t now = time(0);
+	char* dt = ctime(&now);
+	string s = logFileName + ".log";
+	ofstream logFile(s, ios::app);
+	bool logFileOpen = logFile.is_open();
+	s = procInfoDatFileName + ".dat";
+	ofstream datFile(s, ios::trunc|ios::binary);
+	bool datFileOpen = datFile.is_open();
+	int a = GetLastError();
+	HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+	BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+	HANDLE hMutexLoging = CreateMutex(nullptr, FALSE, "Loging");
+	BOOL isLoging = (GetLastError() != ERROR_ALREADY_EXISTS); //
+	const char* DBPath = "log.s3db";
+	SQLite::Database* db;
+	try {
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
+	}
+	catch (std::exception& e)
+	{
+		//ConsolePrintf("exception: %s\n", e.what()); ConsoleScanf(ch, len);
+		return;
+
+	}
+
+	if ( isLoging &&((*db).tableExists("LOG")) )
+	{
+		string sql;
+		logQueueClass::ListNode* log = logQueue->front();
+		while (log != NULL && canLog)
+		{
+
+			sql = "insert into LOG (logTime,cntThreads,cntUsage,dwFlags,dwSize,pcPriClassBase,szExeFile,th32DefaultHeapID,th32ModuleID,th32ParentProcessID,th32ProcessID) values (" 
+				+ std::string("\'") + std::to_string(log->logData->logTime) + std::string("\'") + ", " + std::string("\'") + std::to_string(log->logData->cntThreads) + std::string("\'")
+				+ ", " + std::string("\'")	+ std::to_string(log->logData->cntUsage) + std::string("\'") + ", " + std::string("\'") +std::to_string(log->logData->dwFlags) 
+				+ std::string("\'") + "," + std::string("\'")+std::to_string(log->logData->dwSize) + std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->pcPriClassBase)
+				+ std::string("\'") + "," + std::string("\'")+log->logData->szExeFile + std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32DefaultHeapID)
+				+ std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32ModuleID)+ std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32ParentProcessID) 
+				+ std::string("\'") + "," + std::string("\'") +std::to_string(log->logData->th32ProcessID) + std::string("\')");
+			//(*db).exec(sql);
+			try {
+				db->exec(sql);
+			}
+			catch (std::exception& e)
+			{
+				if (db != NULL)
+					(*db).~Database();
+				CloseHandle(hMutexLoging);
+				hMutexLoging = NULL;
+				CloseHandle(hMutex);
+				hMutex = NULL;
+				return;
+			}
+			log = log->next;
+		}
+	}
+
+	if ((*db).tableExists("PROCESSINFO"))
+	{
+		string sql;
+		if (canLog)
+		{
+			processes* pointer = moniteProcesses;
+			if (pointer && pointer->ProcessInfo) {
+				sql = "insert into PROCESSINFO (processName, startTime, lastRunTime, duration, curDuration, runTimes, isRunnig,TotalTime, resetMode) values (" 
+					+ std::string("\'")+pointer->ProcessInfo->processName + std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->startTime) + std::string("\'")
+					+ "," + std::string("\'") + std::to_string(pointer->ProcessInfo->lastRunTime) + std::string("\'") + "," + std::string("\'") 
+					+ std::to_string(pointer->ProcessInfo->duration) + std::string("\'")+ "," + std::string("\'") + std::to_string(pointer->ProcessInfo->curDuration) 
+					+ std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->runTimes) + std::string("\'") +"," + std::string("\'") 
+					+ std::to_string(pointer->ProcessInfo->isRunnig) + std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->TotalTime)
+					+ std::string("\'") + "," + std::string("\'") + std::to_string(pointer->ProcessInfo->resetMode) + std::string("\')");
+				try
+				{
+					db->exec(sql);
+				}
+				catch (std::exception& e)
+				{
+					if (db != NULL)
+						(*db).~Database();
+					CloseHandle(hMutexLoging);
+					hMutexLoging = NULL;
+					CloseHandle(hMutex);
+					hMutex = NULL;
+					return;
+				}
+
+				pointer = pointer->next;
+			}
+			
+		}
+	}
+	if (db!=NULL)
+        (*db).~Database();
+	CloseHandle(hMutexLoging);
+	hMutexLoging = NULL;
+	CloseHandle(hMutex);
+	hMutex = NULL;
+	return;
+}
+
+//DWORD static WINAPI MainThread(_In_ LPVOID lpParameter) {
+//	MSG msg;
+//	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);// πœﬂ≥Ã≤˙…˙¡À“ª∏ˆœ˚œ¢∂”¡–
+//	//if (!SetEvent(hStartEvent))//º§ªÓ÷˜œﬂ≥Ãµƒµ»¥˝ ¬º˛£¨»√÷˜œﬂ≥Ã∏¯±æœﬂ≥Ã∑¢ÀÕœ˚œ¢
+//	//{
+//	//	printf("set event error,%d\n", GetLastError());
+//	//	return 1;
+//	//}
+//	while (true)
+//	{
+//		if (GetMessage(&msg, 0, 0, 0)) //√ª”–œ˚œ¢ª·÷˜∂Ø◊Ë»˚µ»¥˝£¨÷±µΩ ’µΩœ˚œ¢
+//		{
+//			if (msg.message==WM_TIMECONTROLLER)
+//			{
+//				switch (msg.wParam)
+//				{
+//				case MP_TIMERCONTROLER_STOP:  //Õ£÷πTimerController
+//					serviceState->bRunning = false;
+//					break;
+//				case MP_TIMERCONTROLER_RESUME:  //ºÃ–¯TimerController
+//					serviceState->bRunning = true;
+//					break;
+//				case MP_TIMERCONTROLER_RESET:  //÷ÿ÷√TimerController
+//					InitService();
+//					break;
+//				case MP_TIMERCONTROLER_TERMINATEPROC:  //Ω· ¯Ω¯≥Ã
+//					ATerminateProcess(msg.lParam);
+//					break;
+//				case MP_TIMERCONTROLER_QUERYPROCESSINFO: //≤È—ØΩ¯≥Ã–≈œ¢
+//					QuerryProcessInformation((processInformation*)msg.wParam, msg.lParam);
+//					break;
+//				case MP_TIMERCONTROLER_GetPROCESSES://ªÒ»°µ±«∞À˘”–Ω¯≥Ã–≈œ¢
+//					PROCESSENTRY32 pe32;
+//					// ‘⁄ π”√’‚∏ˆΩ·ππ÷Æ«∞£¨œ»…Ë÷√À¸µƒ¥Û–°
+//					pe32.dwSize = sizeof(pe32);
+//					// ∏¯œµÕ≥ƒ⁄µƒÀ˘”–Ω¯≥Ã≈ƒ“ª∏ˆøÏ’’
+//					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+//					if (hProcessSnap == INVALID_HANDLE_VALUE)
+//					{
+//						printf(" CreateToolhelp32Snapshotµ˜”√ ß∞‹£° \n");
+//						return;
+//					}
+//					processInformation* pProcessInformation;
+//
+//					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+//					while (bMore)
+//					{
+//
+//						vector <processInformation*> vectorProcessInformation;
+//
+//						pProcessInformation = new processInformation;
+//						
+//						(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
+//
+//						if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
+//						    vectorProcessInformation.push_back(pProcessInformation);
+//						bMore= ::Process32Next(hProcessSnap, &pe32);
+//					}
+//					break;
+//				case MP_TIMERCONTROLER_LOGON:  //µ«¬ºTimerController
+//					break;
+//				case MP_TIMERCONTROLER_LOGOFF:  //µ«≥ˆ
+//					break;
+//				case MP_TIMERCONTROLER_LOADSETTING:  //µ˜»Î…Ë÷√
+//					break;
+//				}
+//				printf("okk");
+//				//break;
+//			}
+//		}
+//	}
+//	return 1;
+//}
+// 
+//÷˜œﬂ≥Ã£¨∏∫‘”Î«∞∂ÀÕ®–≈
+static DWORD  WINAPI MainThread(_In_ LPVOID lpParameter)
+{
+	exchangeMessage* em;
+	em = new exchangeMessage;
+	HANDLE hNamedPipe = CreateNamedPipeA(serverNamePipe,
+		PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+		PIPE_TYPE_BYTE, 1, 1024, 1024, 0, NULL);
+	//ºÏ≤È «∑Ò¥¥Ω®≥…π¶
+
+	if (hNamedPipe == INVALID_HANDLE_VALUE)
+	{
+		::printf("create named pipe failed!\n");
+	}
+	else
+	{
+		::printf("create named pipe success!\n");
+	}
+	//“Ï≤ΩIOΩ·ππ
+	OVERLAPPED op;
+	ZeroMemory(&op, sizeof(OVERLAPPED));
+
+	//¥¥Ω®“ª∏ˆ ¬º˛ƒ⁄∫À∂‘œÛ
+	op.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	while (1)
+	{
+		//µ»¥˝“ª∏ˆøÕªß∂ÀΩ¯––¡¨Ω”
+		BOOL b = ConnectNamedPipe(hNamedPipe, &op);
+		//µ±”–øÕªß∂ÀΩ¯––¡¨Ω” ±£¨ ¬º˛±‰≥…”––≈∫≈µƒ◊¥Ã¨
+		if (WaitForSingleObject(op.hEvent, INFINITE) == 0)
+		{
+			std::printf("client connect success!\n");
+		}
+		else
+		{
+			std::printf("client connect failed!\n");
+		}
+		//¡¨Ω”≥…π¶∫Û£¨Ω¯––Õ®–≈£¨∂¡–¥
+
+		DWORD cbWrite;
+		//WriteFile(hNamedPipe, buff, strlen(buff), &cbWrite, NULL);
+
+		//ZeroMemory(buff, 100);
+
+		ReadFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
+		if (strcmp(em->header , "WPFTIMER")==0)
+		{
+			switch (em->cmd)
+			{
+			case MP_TIMERCONTROLER_STOP:  //Õ£÷πTimerController
+				if ((ValidateToken(string(em->USERNAME),string(em->USER_TOKEN,em->LEN_USER_TOKEN),DES_KEY)))
+					serviceState->bRunning = false;
+				break;
+			case MP_TIMERCONTROLER_RESUME:  //ºÃ–¯TimerController
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
+					serviceState->bRunning = true;
+				break;
+			case MP_TIMERCONTROLER_RESET:  //÷ÿ÷√TimerController
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
+					InitService();
+				break;
+			case MP_TIMERCONTROLER_TERMINATEPROC:  //Ω· ¯Ω¯≥Ã
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
+				{
+					DWORD d;
+					memcpy(&d, em->context, 4);
+					ATerminateProcess(d);
+				}
+				break;
+			case MP_TIMERCONTROLER_QUERYPROCESSINFO: //≤È—ØΩ¯≥Ã–≈œ¢
+			{
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)) )
+				{
+					DWORD d;
+					//processInformation* p
+					memcpy(&d, em->context, 4);
+					void* p = new processInformation*;
+					memcpy(&d, p, 4);
+					QuerryProcessInformation((processInformation*)p, d);
+					//em->header = "test message from server!";
+					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+					em->context = (char*)&p;
+					em->LEN_CONTEXT = sizeof(&p);
+					//sprintf_s(em, 100, "test message from server!");
+					WriteFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
+				}
+			}
+			break;
+			case MP_TIMERCONTROLER_GetPROCESSES://ªÒ»°µ±«∞À˘”–Ω¯≥Ã–≈œ¢
+			{
+				if ((ValidateToken(string(em->USERNAME), string(em->USER_TOKEN, em->LEN_USER_TOKEN), DES_KEY)))
+				{
+					PROCESSENTRY32 pe32;
+					// ‘⁄ π”√’‚∏ˆΩ·ππ÷Æ«∞£¨œ»…Ë÷√À¸µƒ¥Û–°
+					pe32.dwSize = sizeof(pe32);
+					// ∏¯œµÕ≥ƒ⁄µƒÀ˘”–Ω¯≥Ã≈ƒ“ª∏ˆøÏ’’
+					HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+					if (hProcessSnap == INVALID_HANDLE_VALUE)
+					{
+						std::printf(" CreateToolhelp32Snapshotµ˜”√ ß∞‹£° \n");
+						return 0;
+					}
+					processInformation* pProcessInformation;
+					vector <processInformation*> vectorProcessInformation;
+					BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+					while (bMore)
+					{
+						pProcessInformation = new processInformation;
+
+						(*pProcessInformation).pmc = new PROCESS_MEMORY_COUNTERS;
+
+						if (QuerryProcessInformation(pProcessInformation, pe32.th32ProcessID))
+							vectorProcessInformation.push_back(pProcessInformation);
+						bMore = ::Process32Next(hProcessSnap, &pe32);
+					}
+					//em->header = "test message from server!";
+					em->cmd = MP_TIMERCONTROLER_RETURN_PROCESSINFORMATION;
+					em->LEN_CONTEXT = sizeof(pProcessInformation);
+					em->context = (char*)pProcessInformation;
+					//em->contextLength = sizeof(pProcessInformation);
+					//sprintf_s(em, 100, "test message from server!");
+					WriteFile(hNamedPipe, em, sizeof(exchangeMessage), &cbWrite, NULL);
+				}
+				break;
+			}
+			case MP_TIMERCONTROLER_LOGON:  //µ«¬ºTimerController
+				break;
+			case MP_TIMERCONTROLER_LOGOFF:  //µ«≥ˆ
+				break;
+			case MP_TIMERCONTROLER_LOADSETTING:  //µ˜»Î…Ë÷√
+				break;
+			}
+		}
+
+		//Õ®–≈ÕÍ÷Æ∫Û£¨∂œø™¡¨Ω”
+		DisconnectNamedPipe(hNamedPipe);
+	}
+	//πÿ±’π‹µ¿
+	CloseHandle(hNamedPipe);
+	free(em);
+	return 1;
+
+}
+//√∂æŸ÷∏∂®PIDΩ¯≥Ã”µ”–µƒœﬂ≥Ã
+//≤Œ ˝£∫dwOwnerPIDΩ¯≥ÃPID
+//∑µªÿ: byte* ptrThID,”µ”–µƒœﬂ≥ÃID ˝◊È
+vector <DWORD > ListProcessThreads(DWORD dwOwnerPID)
+{
+	vector <DWORD> result;
+	
+	HANDLE hThreadSnap = INVALID_HANDLE_VALUE;
+	THREADENTRY32 te32;
+
+	// Take a snapshot of all running threads  
+	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnap == INVALID_HANDLE_VALUE)
+//		return(FALSE);
+
+	// Fill in the size of the structure before using it. 
+	te32.dwSize = sizeof(THREADENTRY32);
+
+	// Retrieve information about the first thread,
+	// and exit if unsuccessful
+	if (!Thread32First(hThreadSnap, &te32))
+	{
+
+		CloseHandle(hThreadSnap);  // clean the snapshot object
+		return result;
+
+	}
+
+	// Now walk the thread list of the system,
+	// and display information about each thread
+	// associated with the specified process
+	do
+	{
+		if (te32.th32OwnerProcessID == dwOwnerPID)
+		{
+
+			result.push_back(te32.th32ThreadID);
+		}
+	} while (Thread32Next(hThreadSnap, &te32));
+	try {
+		CloseHandle(hThreadSnap);
+	}
+	catch (std::exception e)
+	{
+		return result;
+	}
+	return(result);
+}
+
+void MoniteThread() {
+	HANDLE mRunningMutex = CreateMutex(NULL, TRUE, "Running");
+	if (mRunningMutex)
+	{
+		if (ERROR_ALREADY_EXISTS == GetLastError())
+		{
+			printf("œﬂ≥Ã“—æ≠‘⁄‘À––÷–¡À,ÕÀ≥ˆ!\n");
+			CloseHandle(mRunningMutex);
+			return;
+		}
+	}
+	else
+	{
+		printf("¥¥Ω®ª•≥‚¡ø¥ÌŒÛ ÕÀ≥ˆ!\n");
+		CloseHandle(mRunningMutex);
+		return;
+	}
+	if (serviceState->bRunning)
+	{
+		//Ω´±ªº‡øÿ≥Ã–Ú–≈œ¢ƒ¨»œŒ™Œ¥‘À––°¢≤ª–ËÕ£÷π£ª«Âø’processid£ª
+		struct processes* pointer = moniteProcesses;
+		while (pointer) {
+			(*pointer).ProcessInfo->isRunnig = false;
+			(*pointer).ProcessInfo->resetMode = rsNone;
+			delete[](*pointer).ProcessInfo->processesID;
+			(*pointer).ProcessInfo->processesID = new DWORD;
+			(*pointer).ProcessInfo->ptrLastProcID = (*pointer).ProcessInfo->processesID;
+			(*pointer).ProcessInfo->countOfProcessID = 0;
+			pointer = (*pointer).next;
+		}
+		time_t now = time(0);
+		char* dt = ctime(&now);
+		PROCESSENTRY32 pe32;
+		// ‘⁄ π”√’‚∏ˆΩ·ππ÷Æ«∞£¨œ»…Ë÷√À¸µƒ¥Û–°
+		pe32.dwSize = sizeof(pe32);
+
+		// ∏¯œµÕ≥ƒ⁄µƒÀ˘”–Ω¯≥Ã≈ƒ“ª∏ˆøÏ’’
+		HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (hProcessSnap == INVALID_HANDLE_VALUE)
+		{
+			std::printf(" CreateToolhelp32Snapshotµ˜”√ ß∞‹£° \n");
+			return;
+		}
+		//ƒ‹∑Òº«¬ºlog
+		HANDLE hMutex = CreateMutex(nullptr, FALSE, "canLog");
+		BOOL canLog = (GetLastError() != ERROR_ALREADY_EXISTS); //
+		if (!canLog)
+		{
+			CloseHandle(hMutex);
+			hMutex = NULL;
+		}
+		else
+			logQueue->Clear();
+		// ±È¿˙Ω¯≥ÃøÏ’’
+		BOOL bMore = ::Process32First(hProcessSnap, &pe32);
+		while (bMore)
+		{
+			if (canLog)
+			{
+				struLogData* log = new struLogData;
+				(*log).logTime = now;
+				(*log).cntThreads = pe32.cntThreads;
+				(*log).cntUsage = pe32.cntUsage;
+				(*log).dwFlags = pe32.dwFlags;
+				(*log).pcPriClassBase = pe32.pcPriClassBase;
+				(*log).szExeFile = pe32.szExeFile;
+				(*log).th32DefaultHeapID = pe32.th32DefaultHeapID;
+				(*log).th32ModuleID = pe32.th32ModuleID;
+				(*log).th32ParentProcessID = pe32.th32ParentProcessID;
+				(*log).th32ProcessID = pe32.th32ProcessID;
+				logQueue->push(log);
+			}
+			//≈–∂œ «∑Ò±ªº‡øÿΩ¯≥Ã
+			struct processInfo* process = FindMoniteProc(pe32.szExeFile);
+			if (process != NULL) {
+				std::cout << "finded" << endl;
+				//∏¸–¬±ªº‡øÿΩ¯≥Ã µ ±–≈œ¢
+				process->defaultHeapID = pe32.th32DefaultHeapID;
+				process->flags = pe32.dwFlags;
+				if (now - process->lastRunTime > intervalAsNextRun)
+				{
+					process->runTimes += 1;
+					process->curDuration = 0;
+				}
+				process->lastRunTime = now;
+				process->moduleID = pe32.th32ModuleID;
+				process->parentProcessID = pe32.th32ParentProcessID;
+				process->priClassBase = pe32.pcPriClassBase;
+
+				//º«¬º∏√Ω¯≥Ã”µ”–µƒœﬂ≥Ã
+
+				vector <DWORD> p2;
+				p2 = ListProcessThreads(pe32.th32ProcessID);
+
+				byte* p = (byte*)&(pe32.th32ProcessID);
+				byte c = process->countOfProcessID;
+				byte c2 = p2.size();
+				//char* p2 = strchr(process->processesID, '\0');
+
+
+
+				//≈–∂œ∏√Ω¯≥Ã”µ”–µƒœﬂ≥Ã ˝ «∑Ò≥¨π˝‘≠±£¡Ùø’º‰£®“‘8∏ˆœﬂ≥ÃŒ™µ•Œª£¨¬˙8∏ˆ–Ë…Í«Î–¬œﬂ≥Ã–≈œ¢º«¬ºø’º‰£©
+				if ((c-c2>7) || c2>(round((c2 + 7) / 8) * 8))
+				{
+					DWORD oldLength = c * 8;
+					//process->countOfProcessID += 32;
+					DWORD* newProcessesID = (DWORD*)malloc(round((c2 + 7) / 8) * 32);
+					free(process->processesID);
+					process->processesID =  newProcessesID;
+
+				}
+
+				vector<DWORD>::iterator it;
+				for (it = p2.begin(); it != p2.end(); it++) {
+					*(process->ptrLastProcID) = (*it);
+					process->ptrLastProcID++;
+				}
+				process->countOfProcessID = c2;
+
+				std::printf("ProcessID:%u%u%u%u%u%u%u%u\n", (byte)p[0], (byte)p[1], (byte)p[2], (byte)p[3], (byte)p[4], (byte)p[5], (byte)p[6], (byte)p[7]);  //≤‚ ‘
+				process->ptrLastProcID++;
+				process->countOfProcessID++;
+				process->duration += moniteInterval / 1000;
+				process->curDuration += moniteInterval / 1000;
+				process->size = pe32.dwSize;
+				process->threads = pe32.cntThreads;
+				process->usage = pe32.cntUsage;
+				//process->timeAfterPrevRun += moniteInterval/1000;
+				process->isRunnig = true;
+			}
+
+
+			bMore = ::Process32Next(hProcessSnap, &pe32);
+			if (hMutex) {
+			CloseHandle(hMutex);
+			hMutex = NULL;
+		}
+		}
+
+		//  Õ∑≈snapshot∂‘œÛ
+		::CloseHandle(hProcessSnap);
+
+
+		//≤‚ ‘
+		processes* pointert = moniteProcesses;
+		for (int i = 0; i < maxMoniteProc; i++) {
+			if (pointert->ProcessInfo->processName == "msedge.exe") {
+				std::cout << "ProcessID2:  ";
+				DWORD* pp1 = pointert->ProcessInfo->processesID;
+				for (int j = 0; j < (pointert->ProcessInfo->countOfProcessID); j++) {
+					std::printf("ProcessID2   :%u%u%u%u%u%u%u%u\n", (byte)pp1[0], (byte)pp1[1], (byte)pp1[2], (byte)pp1[3], (byte)pp1[4], (byte)pp1[5], (byte)pp1[6], (byte)pp1[7]);  //≤‚ ‘
+					pp1 += 8;
+				}
+				std::cout << endl;
+			}
+			pointert = pointert->next;
+		}
+
+		//≤‚ ‘Ω· ¯
+
+		static struct processesByRuleList* scanPtr;
+		processInfo* pInfo;
+		//≈–∂œ «∑Ò‘⁄÷∏∂®µƒ ±º‰∂Œ‘À––
+		scanPtr = processesByRule[0];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && now<pInfo->startTime || now >pInfo->endTime) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//≈–∂œ «∑Ò≥¨π˝√øÃÏ‘À––µƒ¥Œ ˝
+		scanPtr = processesByRule[1];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && pInfo->runTimes > pInfo->times) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//≈–∂œ√ø¡Ω¥Œ‘À––º‰∏Ù «∑Ò≥¨π˝πÊ∂® ±º‰
+		scanPtr = processesByRule[2];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && now - pInfo->lastRunTime > pInfo->Interval) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//≈–∂œ√ø¥Œ‘À––≥÷–¯ «∑Ò≥¨π˝πÊ∂® ±º‰
+		scanPtr = processesByRule[3];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->curDuration > pInfo->PerPeriodTime) pInfo->resetMode |= rsCurDuration | rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//≈–∂œ «∑Ò‘⁄Ω˚÷πµƒ ±º‰∂Œ‘À––
+		scanPtr = processesByRule[4];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && now > pInfo->startTime && now < pInfo->endTime) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+		//≈–∂œ√øÃÏ◊‹π≤‘À–– ±≥§ «∑Ò≥¨π˝πÊ∂® ±º‰
+		scanPtr = processesByRule[5];
+		while (scanPtr)
+		{
+			pInfo = (*scanPtr).ProcessInfo;
+			if (pInfo->isRunnig && pInfo->duration > pInfo->TotalTime) pInfo->resetMode |= rsTerminate;
+			scanPtr = (*scanPtr).next;
+		}
+
+		std::cout << "checkpoint 3" << endl;
+		//Õ£÷π¥•º∞πÊ∂®µƒΩ¯≥Ã
+		pointer = moniteProcesses;
+		std::cout << "checkpoint 1" << endl;
+		while (pointer) {
+			//if ((*pointer).ProcessInfo->resetMode)
+
+			//≤‚ ‘
+			if ((*pointer).ProcessInfo->processName == "msedge.exe")
+				//≤‚ ‘Ω· ¯
+
+			{
+				//cout << "checkpoint4" << endl;
+				//int processid = (*pointer).ProcessInfo->processID;
+				//struct threadInfo* pointer2 = threadList;
+				//while (pointer2)
+				//{
+				//	cout << "checkpoint 2" << endl;
+				//	if ((*pointer2).ownerProcessID == processid)
+				//	{
+				//		HANDLE handle = OpenThread(THREAD_TERMINATE | THREAD_QUERY_INFORMATION, FALSE, (*pointer2).threadID);
+				//		BOOL bResult = TerminateThread(handle, 0);
+				//		cout << "Terminate thread result:" << bResult << "   error:" << GetLastError() << endl;
+				//		CloseHandle(handle);
+				//	}
+				//	pointer2 = (*pointer2).next;
+				//}
+				//struct processesID* processIDPointer = (*pointer).ProcessInfo->processes;
+				//while (processIDPointer && (*processIDPointer).processName != "---null")
+				DWORD id;
+				byte order = 0;
+				byte count = (*pointer).ProcessInfo->countOfProcessID;
+				while (id = GetProcessID(pointer->ProcessInfo->processesID, order, count))
+				{
+					ATerminateProcess((WORD)id);
+				}
+				
+				ResetProc(pointer->ProcessInfo, pointer->ProcessInfo->resetMode);
+				//pointer->ProcessInfo->resetMode = false;
+			}
+			pointer = (*pointer).next;
+		}
+		//	}
+		std::cout << "test ok" << std::endl;
+
+		return;
+	}
+	CloseHandle(mRunningMutex);
+};
+
+void InitService()
+{
+	std::cout << "hello0" << std::endl;
+	std::printf("hello00");
+
+	DB::RuleService DBRS;
+	DB::TimeControllerRule* rule = new DB::TimeControllerRule();
+	DBRS.openTable();
+	DBRS.closeTable();
+
+	DBRS.getRule(rule, 1);
+	rule->SetRuleName("2");
+	rule->SetProgramName("3");
+	rule->SetProgramTitle("3");
+	rule->SetProgramDirectory("4");
+	rule->SetRunPath("5");
+	rule->SetStartTime(10);
+	rule->SetEndTime(20);
+	rule->SetPerPeriodTime(15);
+	rule->SetTimes(16);
+	rule->SetRunMode(DB::rmTimes);
+	rule->SetLimitRule(DB::LimitRule::g);
+	rule->SetTotalTime(30);
+	std::cout << "hello1" << std::endl;
+	DB::TimeControllerRule*** rules = new DB::TimeControllerRule**;
+	DBRS.getAllRule(rules, maxMoniteProc);
+	processesByRuleList** ptrNodeByRule[runModeCount];
+	for (int i = 0; i < runModeCount; i++)
+		ptrNodeByRule[i] = &processesByRule[i];
+	processes** ptrNodeProcess = &moniteProcesses;
+	for (int i = 0; i < maxMoniteProc; i++) {
+		processes* tempProcessNode = new processes;
+		(*tempProcessNode).ProcessInfo = new processInfo;
+		(*tempProcessNode).next = nullptr;
+		if (ptrNodeProcess) (*ptrNodeProcess) = tempProcessNode;
+		//…˙≥…÷˜ID;
+		(**ptrNodeProcess).ProcessInfo->id = i;
+		//ªÒ»°–Ëº‡ ”Ω¯≥ÃπÊ‘Úø‚÷–µƒ–≈œ¢
+		(**ptrNodeProcess).ProcessInfo->dbID = (*rules)[i]->GetId();
+		(**ptrNodeProcess).ProcessInfo->processName = (*rules)[i]->GetProgramName();
+		(**ptrNodeProcess).ProcessInfo->endTime = (*rules)[i]->GetEndTime();
+		(**ptrNodeProcess).ProcessInfo->times = (*rules)[i]->GetTimes();
+		(**ptrNodeProcess).ProcessInfo->PerPeriodTime = (*rules)[i]->GetPerPeriodTime();
+		(**ptrNodeProcess).ProcessInfo->Interval = (*rules)[i]->GetInterval();
+		(**ptrNodeProcess).ProcessInfo->ProgramDirectory = (*rules)[i]->GetProgramDirectory();
+		(**ptrNodeProcess).ProcessInfo->ProgramTitle = (*rules)[i]->GetProgramTitle();
+		(**ptrNodeProcess).ProcessInfo->RunPath = (*rules)[i]->GetRunPath();
+		(**ptrNodeProcess).ProcessInfo->runMode = (*rules)[i]->GetRunMode();
+		(**ptrNodeProcess).ProcessInfo->TotalTime = (*rules)[i]->GetTotalTime();
+		(**ptrNodeProcess).ProcessInfo->startTime = (*rules)[i]->GetStartTime();
+		//≥ı ºªØ±ªº‡ ”Ω¯≥Ã–≈œ¢
+		(**ptrNodeProcess).ProcessInfo->runTimes = 0;
+		(**ptrNodeProcess).ProcessInfo->lastRunTime = -1;
+		(**ptrNodeProcess).ProcessInfo->duration = 0;
+		(**ptrNodeProcess).ProcessInfo->curDuration = 0;
+
+		for (int j = 0; j < runModeCount; j++) {
+			processesByRuleList* tempNodeByRule = new struct processesByRuleList;
+			(*tempNodeByRule).next = nullptr;
+			//ÃÌº”Ω¯≥Ã÷∏’ÎµΩ∂‘”¶‘À––ƒ£ Ωµƒº‡ ”¡–±Ì÷–£¨ƒ£ ΩÕ®π˝runMode∂˛Ω¯÷∆Œª…Ë÷√∂®“Â£¨œÍº˚common.hŒƒº˛
+			if ((**ptrNodeProcess).ProcessInfo->runMode & (0x1 << j))
+			{
+				(*tempNodeByRule).ProcessInfo = (**ptrNodeProcess).ProcessInfo;
+				(*tempNodeByRule).runMode = j;
+				if (ptrNodeByRule[j])
+				{
+					(*ptrNodeByRule[j]) = tempNodeByRule;
+					ptrNodeByRule[j] = &(**ptrNodeByRule[j]).next;
+				}
+			}
+		}
+		ptrNodeProcess = &(**ptrNodeProcess).next;
+		delete (*rules)[i];
+
+	}
+	delete* rules;
+	delete rules;
+	const char* DBPath = "log.s3db";
+	SQLite::Database* db;
+	try {
+		db = new SQLite::Database(DBPath, SQLite::OPEN_READWRITE);
+	}
+	catch (std::exception& e)
+	{
+
+		return;
+
+	}
+	processInfo* p;	
+	try 
+	{
+		(*db).tableExists("PROCESSINFO");
+	}
+	catch(std::exception& e)
+	{
+		return;
+	}
+	if ((*db).tableExists("PROCESSINFO"))
+	{
+		string sql = "SELECT * FROM PROCESSINFO";
+		SQLite::Statement* mQuery=new SQLite::Statement((*db), sql);
+		if ((*mQuery).executeStep())
+		{
+				p = FindMoniteProc((*mQuery).getColumn(1).getString());
+				if (p) 
+				{
+					p->processName = (*mQuery).getColumn(1).getString();
+					p->startTime = (*mQuery).getColumn(2).getInt64();
+					p->lastRunTime = (*mQuery).getColumn(3).getInt64();
+					p->duration = (*mQuery).getColumn(4).getInt64();
+					p->curDuration = (*mQuery).getColumn(5).getInt64();
+					p->runTimes = (*mQuery).getColumn(6).getInt64();
+					p->isRunnig = (*mQuery).getColumn(7).getBytes();
+					p->TotalTime = (*mQuery).getColumn(8).getInt64();
+					p->resetMode = (*mQuery).getColumn(9).getBytes();
+				}
+		}
+		if (mQuery)
+			(*mQuery).~Statement();
+
+	}
+
+	if (db != NULL)
+		(*db).~Database();
+	timerMoniteTimer.setCallback(MoniteThread);
+	timerlogTimer.setCallback(LogThread);
+	timerMoniteTimer.start(moniteInterval, true);
+	timerlogTimer.start(10000, true);
+}
+
+
+int main(void)
+{
+	InitService();
+
+	std::cout << "hello11111" << std::endl;
+	OutputDebugString("hello");
+
+	//PMYDATA pDataArray;
+	DWORD   threadId;
+	HANDLE  threadHandle;
+	exchangeMessage* wb, * rb;
+	wb = new exchangeMessage;
+	rb = new exchangeMessage;
+
+
+
+	    threadHandle = CreateThread(
+			NULL,                   // default security attributes
+			0,                      // use default stack size  
+			MainThread,       // thread function name
+			NULL,          // argument to thread function 
+			0,                      // use default creation flags 
+			&threadId);   // returns the thread identifier 
+
+		if (threadHandle == NULL)
+		{
+
+			ExitProcess(3);
+		}
+		serviceState->bRunning = true;
+	while (true)
+	{
+		bool isIdle = true;
+
+		if (KEYDOWN(VK_ESCAPE)) // ∞¥ESCÕÀ≥ˆ,∑«◊Ë»˚ƒ£ Ω£¨√ø¥Œ—≠ª∑≤ªª·Õ£¡Ù‘⁄’‚
+			return -1;
+		if (isIdle && KEYDOWN(0x41))  //∞¥°∞A°±º¸
+		{
+			isIdle = false;
+			//int byteReaded;
+			//MSG msg;
+			//msg.message = WM_TIMECONTROLLER;
+			//WPARAM wParam = NULL;
+			//LPARAM lParam = NULL;
+			//byteReaded = sizeof(exchangeMessage);
+			//(*wb).header = (PCHAR)malloc(8);
+			//scanf((*wb).header, "WPFTIMER");
+			(*wb).cmd = MP_TIMERCONTROLER_TERMINATEPROC;
+			(*wb).USERNAME =(PCHAR) malloc(7);
+			strcpy((*wb).USERNAME ,"WELTER\0");
+			(*wb).LEN_USER_TOKEN = sizeof(testToken);
+			(*wb).USER_TOKEN = (PCHAR)malloc(sizeof(testToken));
+			strncpy((*wb).USER_TOKEN, testToken,(*wb).LEN_USER_TOKEN);
+			(*wb).LEN_CONTEXT = 3;
+			(*wb).context = (PCHAR)malloc(3);
+			strncpy((*wb).context, "333",3);
+			
+			
+			//PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			CommuToServerNamePipe(wb,rb);
+			isIdle = true;
+		}
+		if (isIdle && KEYDOWN(0x42))  //∞¥°∞B°±º¸
+		{
+			isIdle = false;
+			MSG msg;
+			msg.message = WM_TIMECONTROLLER;
+			WPARAM wParam = NULL;
+			LPARAM lParam = NULL;
+			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			isIdle = true;
+		}
+		if (isIdle && KEYDOWN(0x43))  //∞¥°∞C°±º¸
+		{
+			isIdle = false;
+			MSG msg;
+			msg.message = WM_TIMECONTROLLER;
+			WPARAM wParam = NULL;
+			LPARAM lParam = NULL;
+			PostThreadMessage(threadId, WM_TIMECONTROLLER, wParam, lParam);
+			isIdle = true;
+		}
+		::Sleep(1000);
+	}
+	free(wb);
+	free(rb);
 }
